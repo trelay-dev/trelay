@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -12,13 +15,11 @@ import (
 	"github.com/aftaab/trelay/internal/core/link"
 )
 
-// StatsHandler handles analytics-related HTTP requests.
 type StatsHandler struct {
 	linkService      *link.Service
 	analyticsService *analytics.Service
 }
 
-// NewStatsHandler creates a new stats handler.
 func NewStatsHandler(linkService *link.Service, analyticsService *analytics.Service) *StatsHandler {
 	return &StatsHandler{
 		linkService:      linkService,
@@ -26,7 +27,6 @@ func NewStatsHandler(linkService *link.Service, analyticsService *analytics.Serv
 	}
 }
 
-// GetStats handles GET /api/v1/stats/{slug}
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -34,21 +34,7 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get link to verify it exists and get ID
-	linkData, err := h.linkService.Get(r.Context(), slug, "")
-	if err != nil {
-		if err == domain.ErrPasswordRequired {
-			// For stats, allow viewing without password
-			linkData, err = h.linkService.GetByID(r.Context(), 0)
-		}
-		if err != nil && err != domain.ErrPasswordRequired {
-			h.handleError(w, err)
-			return
-		}
-	}
-
-	// Re-fetch by slug without password check for stats
-	linkData, err = h.getLinkBySlugForStats(r, slug)
+	linkData, err := h.getLinkBySlugForStats(r, slug)
 	if err != nil {
 		h.handleError(w, err)
 		return
@@ -65,10 +51,51 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, stats)
+	exportFormat := r.URL.Query().Get("export")
+	switch exportFormat {
+	case "csv":
+		h.exportCSV(w, slug, stats)
+	case "json":
+		h.exportJSON(w, slug, stats)
+	default:
+		response.JSON(w, http.StatusOK, stats)
+	}
 }
 
-// GetDailyStats handles GET /api/v1/stats/{slug}/daily
+func (h *StatsHandler) exportCSV(w http.ResponseWriter, slug string, stats *domain.ClickStats) {
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-stats.csv", slug))
+
+	writer := csv.NewWriter(w)
+	defer writer.Flush()
+
+	writer.Write([]string{"metric", "value"})
+	writer.Write([]string{"total_clicks", strconv.FormatInt(stats.TotalClicks, 10)})
+	writer.Write([]string{})
+
+	if len(stats.ClicksByDay) > 0 {
+		writer.Write([]string{"date", "clicks"})
+		for _, d := range stats.ClicksByDay {
+			writer.Write([]string{d.Date, strconv.FormatInt(d.Clicks, 10)})
+		}
+		writer.Write([]string{})
+	}
+
+	if len(stats.TopReferrers) > 0 {
+		writer.Write([]string{"referrer", "clicks"})
+		for _, r := range stats.TopReferrers {
+			writer.Write([]string{r.Referrer, strconv.FormatInt(r.Clicks, 10)})
+		}
+	}
+}
+
+func (h *StatsHandler) exportJSON(w http.ResponseWriter, slug string, stats *domain.ClickStats) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s-stats.json", slug))
+
+	json.NewEncoder(w).Encode(stats)
+}
+
 func (h *StatsHandler) GetDailyStats(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -98,7 +125,6 @@ func (h *StatsHandler) GetDailyStats(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, stats)
 }
 
-// GetMonthlyStats handles GET /api/v1/stats/{slug}/monthly
 func (h *StatsHandler) GetMonthlyStats(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -128,7 +154,6 @@ func (h *StatsHandler) GetMonthlyStats(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, stats)
 }
 
-// GetReferrers handles GET /api/v1/stats/{slug}/referrers
 func (h *StatsHandler) GetReferrers(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -159,14 +184,8 @@ func (h *StatsHandler) GetReferrers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *StatsHandler) getLinkBySlugForStats(r *http.Request, slug string) (*domain.Link, error) {
-	// Use a direct repo call or add a GetBySlugNoAuth method
-	// For now, try to get without password
 	linkData, err := h.linkService.Get(r.Context(), slug, "")
 	if err == domain.ErrPasswordRequired {
-		// For stats, we need to bypass password check
-		// This requires getting the link by slug without password validation
-		// We'll need to add a method for this or use the repo directly
-		// For now, return the error
 		return nil, err
 	}
 	return linkData, err

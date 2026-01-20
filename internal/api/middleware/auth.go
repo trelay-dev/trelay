@@ -11,12 +11,8 @@ import (
 
 type contextKey string
 
-const (
-	// AuthContextKey is the context key for authentication info.
-	AuthContextKey contextKey = "auth"
-)
+const AuthContextKey contextKey = "auth"
 
-// AuthInfo holds authentication information for a request.
 type AuthInfo struct {
 	Authenticated bool
 	Method        string // "api_key" or "jwt"
@@ -96,7 +92,6 @@ func OptionalAuth(apiKeyHash string, jwtManager *auth.JWTManager) func(http.Hand
 	}
 }
 
-// GetAuthInfo retrieves authentication info from context.
 func GetAuthInfo(ctx context.Context) AuthInfo {
 	if info, ok := ctx.Value(AuthContextKey).(AuthInfo); ok {
 		return info
@@ -104,7 +99,6 @@ func GetAuthInfo(ctx context.Context) AuthInfo {
 	return AuthInfo{}
 }
 
-// IsAuthenticated checks if the request is authenticated.
 func IsAuthenticated(ctx context.Context) bool {
 	return GetAuthInfo(ctx).Authenticated
 }

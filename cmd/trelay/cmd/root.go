@@ -8,9 +8,12 @@ var (
 	outputFormat string
 )
 
+const Version = "2.0.0"
+
 var rootCmd = &cobra.Command{
-	Use:   "trelay",
-	Short: "Trelay - Developer-first URL shortener",
+	Use:     "trelay",
+	Short:   "Trelay - Developer-first URL shortener",
+	Version: Version,
 	Long: `Trelay is a developer-first, privacy-respecting URL manager.
 Create, manage, and analyze shortened URLs from the command line.
 
@@ -22,7 +25,6 @@ Examples:
   trelay delete my-link`,
 }
 
-// Execute runs the root command.
 func Execute() error {
 	return rootCmd.Execute()
 }

@@ -12,17 +12,14 @@ import (
 	"github.com/aftaab/trelay/internal/core/link"
 )
 
-// LinkHandler handles link-related HTTP requests.
 type LinkHandler struct {
 	service *link.Service
 }
 
-// NewLinkHandler creates a new link handler.
 func NewLinkHandler(service *link.Service) *LinkHandler {
 	return &LinkHandler{service: service}
 }
 
-// Create handles POST /api/v1/links
 func (h *LinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req domain.CreateLinkRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -44,7 +41,6 @@ func (h *LinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, createdLink)
 }
 
-// Get handles GET /api/v1/links/{slug}
 func (h *LinkHandler) Get(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -63,7 +59,6 @@ func (h *LinkHandler) Get(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, linkData)
 }
 
-// Update handles PATCH /api/v1/links/{slug}
 func (h *LinkHandler) Update(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -86,7 +81,6 @@ func (h *LinkHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, updatedLink)
 }
 
-// Delete handles DELETE /api/v1/links/{slug}
 func (h *LinkHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -111,7 +105,6 @@ func (h *LinkHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// Restore handles POST /api/v1/links/{slug}/restore
 func (h *LinkHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -127,7 +120,56 @@ func (h *LinkHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]bool{"restored": true})
 }
 
-// List handles GET /api/v1/links
+type bulkDeleteRequest struct {
+	Slugs     []string `json:"slugs"`
+	Permanent bool     `json:"permanent"`
+}
+
+type bulkDeleteResponse struct {
+	Deleted []string `json:"deleted"`
+	Failed  []string `json:"failed"`
+}
+
+func (h *LinkHandler) BulkDelete(w http.ResponseWriter, r *http.Request) {
+	var req bulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if len(req.Slugs) == 0 {
+		response.ValidationError(w, "slugs", "at least one slug is required")
+		return
+	}
+
+	if len(req.Slugs) > 100 {
+		response.ValidationError(w, "slugs", "maximum 100 slugs per request")
+		return
+	}
+
+	result := bulkDeleteResponse{
+		Deleted: make([]string, 0),
+		Failed:  make([]string, 0),
+	}
+
+	for _, slug := range req.Slugs {
+		var err error
+		if req.Permanent {
+			err = h.service.HardDelete(r.Context(), slug)
+		} else {
+			err = h.service.Delete(r.Context(), slug)
+		}
+
+		if err != nil {
+			result.Failed = append(result.Failed, slug)
+		} else {
+			result.Deleted = append(result.Deleted, slug)
+		}
+	}
+
+	response.JSON(w, http.StatusOK, result)
+}
+
 func (h *LinkHandler) List(w http.ResponseWriter, r *http.Request) {
 	filter := domain.ListLinksFilter{
 		Search: r.URL.Query().Get("search"),

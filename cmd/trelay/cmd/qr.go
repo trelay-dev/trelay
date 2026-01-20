@@ -16,6 +16,7 @@ var (
 	qrOutput string
 	qrSize   int
 	qrOpen   bool
+	qrCopy   bool
 )
 
 var qrCmd = &cobra.Command{
@@ -26,7 +27,8 @@ var qrCmd = &cobra.Command{
 Examples:
   trelay qr my-link
   trelay qr my-link --output qr.png
-  trelay qr my-link --size 512 --open`,
+  trelay qr my-link --size 512 --open
+  trelay qr my-link --copy`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := cli.GetClient()
@@ -35,14 +37,12 @@ Examples:
 			return err
 		}
 
-		// Get link to verify it exists
 		link, err := client.GetLink(args[0])
 		if err != nil {
 			cli.Error(err.Error())
 			return err
 		}
 
-		// Build short URL
 		cfg, err := cli.LoadConfig()
 		if err != nil {
 			cli.Error(err.Error())
@@ -50,7 +50,6 @@ Examples:
 		}
 		shortURL := fmt.Sprintf("%s/%s", cfg.APIURL, link.Slug)
 
-		// Generate QR code
 		outputFile := qrOutput
 		if outputFile == "" {
 			outputFile = fmt.Sprintf("%s-qr.png", link.Slug)
@@ -62,6 +61,14 @@ Examples:
 		}
 
 		cli.Success(fmt.Sprintf("QR code saved to: %s", outputFile))
+
+		if qrCopy {
+			if err := copyToClipboard(outputFile); err != nil {
+				cli.Error(fmt.Sprintf("Failed to copy to clipboard: %v", err))
+			} else {
+				cli.Success("QR code copied to clipboard")
+			}
+		}
 
 		if qrOpen {
 			if err := openFile(outputFile); err != nil {
@@ -92,10 +99,27 @@ func openFile(path string) error {
 	return cmd.Run()
 }
 
+func copyToClipboard(imagePath string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		cmd := exec.Command("osascript", "-e", fmt.Sprintf(`set the clipboard to (read (POSIX file "%s") as TIFF picture)`, imagePath))
+		return cmd.Run()
+	case "linux":
+		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", "image/png", "-i", imagePath)
+		return cmd.Run()
+	case "windows":
+		// Windows clipboard for images requires more complex handling
+		return fmt.Errorf("clipboard copy not supported on Windows")
+	default:
+		return fmt.Errorf("unsupported platform")
+	}
+}
+
 func init() {
 	rootCmd.AddCommand(qrCmd)
 
 	qrCmd.Flags().StringVarP(&qrOutput, "output", "o", "", "Output file path (default: <slug>-qr.png)")
 	qrCmd.Flags().IntVarP(&qrSize, "size", "s", 256, "QR code size in pixels")
 	qrCmd.Flags().BoolVar(&qrOpen, "open", false, "Open QR code after generation")
+	qrCmd.Flags().BoolVar(&qrCopy, "copy", false, "Copy QR code to clipboard")
 }

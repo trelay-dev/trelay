@@ -13,9 +13,9 @@ import (
 	"github.com/aftaab/trelay/internal/core/analytics"
 	"github.com/aftaab/trelay/internal/core/auth"
 	"github.com/aftaab/trelay/internal/core/link"
+	"github.com/aftaab/trelay/internal/core/preview"
 )
 
-// RouterConfig holds configuration for the router.
 type RouterConfig struct {
 	APIKeyHash      string
 	JWTSecret       string
@@ -24,7 +24,6 @@ type RouterConfig struct {
 	Logger          zerolog.Logger
 }
 
-// NewRouter creates a new chi router with all routes configured.
 func NewRouter(
 	cfg RouterConfig,
 	linkService *link.Service,
@@ -32,20 +31,15 @@ func NewRouter(
 ) *chi.Mux {
 	r := chi.NewRouter()
 
-	// JWT manager
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret, cfg.TokenExpiry, cfg.TokenExpiry*7)
-
-	// Rate limiter
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitPerMin, time.Minute)
 
-	// Global middleware
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
+	r.Use(middleware.SecureHeaders)
 	r.Use(middleware.Logging(cfg.Logger))
 	r.Use(chimiddleware.Recoverer)
 	r.Use(middleware.RateLimit(rateLimiter))
-
-	// CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -55,37 +49,35 @@ func NewRouter(
 		MaxAge:           300,
 	}))
 
-	// Initialize handlers
+	previewService := preview.NewService()
 	healthHandler := handler.NewHealthHandler()
 	authHandler := handler.NewAuthHandler(jwtManager, cfg.APIKeyHash)
 	linkHandler := handler.NewLinkHandler(linkService)
 	statsHandler := handler.NewStatsHandler(linkService, analyticsService)
+	previewHandler := handler.NewPreviewHandler(previewService)
 	redirectHandler := handler.NewRedirectHandler(linkService, analyticsService)
 
-	// Health check routes (no auth)
 	r.Get("/healthz", healthHandler.Health)
 	r.Get("/health", healthHandler.Health)
 	r.Get("/readyz", healthHandler.Ready)
 
-	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
-		// Auth routes (no auth required)
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.Refresh)
 
-		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.APIKeyHash, jwtManager))
 
-			// Links
 			r.Post("/links", linkHandler.Create)
 			r.Get("/links", linkHandler.List)
+			r.Delete("/links", linkHandler.BulkDelete)
 			r.Get("/links/{slug}", linkHandler.Get)
 			r.Patch("/links/{slug}", linkHandler.Update)
 			r.Delete("/links/{slug}", linkHandler.Delete)
 			r.Post("/links/{slug}/restore", linkHandler.Restore)
 
-			// Stats
+			r.Get("/preview", previewHandler.Fetch)
+
 			r.Get("/stats/{slug}", statsHandler.GetStats)
 			r.Get("/stats/{slug}/daily", statsHandler.GetDailyStats)
 			r.Get("/stats/{slug}/monthly", statsHandler.GetMonthlyStats)
@@ -93,7 +85,6 @@ func NewRouter(
 		})
 	})
 
-	// Redirect route (public, at root level)
 	r.Get("/{slug}", redirectHandler.Redirect)
 
 	return r

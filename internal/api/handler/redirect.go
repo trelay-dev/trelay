@@ -12,13 +12,11 @@ import (
 	"github.com/aftaab/trelay/internal/core/link"
 )
 
-// RedirectHandler handles URL redirects.
 type RedirectHandler struct {
 	linkService      *link.Service
 	analyticsService *analytics.Service
 }
 
-// NewRedirectHandler creates a new redirect handler.
 func NewRedirectHandler(linkService *link.Service, analyticsService *analytics.Service) *RedirectHandler {
 	return &RedirectHandler{
 		linkService:      linkService,
@@ -26,7 +24,6 @@ func NewRedirectHandler(linkService *link.Service, analyticsService *analytics.S
 	}
 }
 
-// Redirect handles GET /{slug} for URL redirects.
 func (h *RedirectHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -83,7 +80,6 @@ func (h *RedirectHandler) handleError(w http.ResponseWriter, err error) {
 
 func getClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For can contain multiple IPs; the first one is the client
 		if idx := strings.Index(xff, ","); idx != -1 {
 			return strings.TrimSpace(xff[:idx])
 		}

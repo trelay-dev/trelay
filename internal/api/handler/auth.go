@@ -8,13 +8,11 @@ import (
 	"github.com/aftaab/trelay/internal/core/auth"
 )
 
-// AuthHandler handles authentication-related HTTP requests.
 type AuthHandler struct {
 	jwtManager *auth.JWTManager
 	apiKeyHash string
 }
 
-// NewAuthHandler creates a new auth handler.
 func NewAuthHandler(jwtManager *auth.JWTManager, apiKeyHash string) *AuthHandler {
 	return &AuthHandler{
 		jwtManager: jwtManager,
@@ -32,7 +30,6 @@ type tokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-// Login handles POST /api/v1/auth/login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -73,7 +70,6 @@ type refreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// Refresh handles POST /api/v1/auth/refresh
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req refreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
