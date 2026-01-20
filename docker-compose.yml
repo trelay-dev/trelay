@@ -1,0 +1,28 @@
+services:
+  trelay:
+    build: .
+    container_name: trelay
+    ports:
+      - "8080:8080"
+    volumes:
+      - trelay-data:/app/data
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - DB_DRIVER=sqlite3
+      - DB_PATH=/app/data/trelay.db
+      - API_KEY=${API_KEY:-tr_change_me_to_secure_key}
+      - JWT_SECRET=${JWT_SECRET:-change_me_to_secure_secret}
+      - BASE_URL=${BASE_URL:-http://localhost:8080}
+      - ANALYTICS_ENABLED=true
+      - IP_ANONYMIZATION=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  trelay-data:
