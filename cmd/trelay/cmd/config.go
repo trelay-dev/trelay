@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
+	"runtime"
 
 	"github.com/spf13/cobra"
 
@@ -116,6 +118,20 @@ var configShowCmd = &cobra.Command{
 
 		path, _ := cli.ConfigPath()
 		fmt.Printf("Config:  %s\n", path)
+
+		// System Check for Linux CLI features
+		if runtime.GOOS == "linux" {
+			fmt.Println("\nSystem Check (Linux):")
+			_, wlErr := exec.LookPath("wl-copy")
+			_, xclipErr := exec.LookPath("xclip")
+			if wlErr != nil && xclipErr != nil {
+				fmt.Println("  [!] Warning: Neither 'wl-copy' nor 'xclip' found.")
+				fmt.Println("      The --copy flag in 'qr' command will not work.")
+				fmt.Println("      Fix: sudo apt install xclip  # or wl-clipboard")
+			} else {
+				fmt.Println("  [✓] Clipboard support is ready.")
+			}
+		}
 
 		return nil
 	},

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"github.com/skip2/go-qrcode"
@@ -100,18 +101,37 @@ func openFile(path string) error {
 }
 
 func copyToClipboard(imagePath string) error {
+	absPath, err := filepath.Abs(imagePath)
+	if err != nil {
+		return err
+	}
+
 	switch runtime.GOOS {
 	case "darwin":
-		cmd := exec.Command("osascript", "-e", fmt.Sprintf(`set the clipboard to (read (POSIX file "%s") as TIFF picture)`, imagePath))
+		cmd := exec.Command("osascript", "-e", fmt.Sprintf(`set the clipboard to (read (POSIX file "%s") as TIFF picture)`, absPath))
 		return cmd.Run()
 	case "linux":
-		cmd := exec.Command("xclip", "-selection", "clipboard", "-t", "image/png", "-i", imagePath)
-		return cmd.Run()
+		if _, err := exec.LookPath("wl-copy"); err == nil {
+			cmd := exec.Command("wl-copy", "-t", "image/png")
+			file, err := os.Open(absPath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			cmd.Stdin = file
+			return cmd.Run()
+		}
+		if _, err := exec.LookPath("xclip"); err == nil {
+			cmd := exec.Command("xclip", "-selection", "clipboard", "-t", "image/png", "-i", absPath)
+			return cmd.Run()
+		}
+		return fmt.Errorf("neither 'wl-copy' (Wayland) nor 'xclip' (X11) found. Please install one to use --copy")
 	case "windows":
-		// Windows clipboard for images requires more complex handling
-		return fmt.Errorf("clipboard copy not supported on Windows")
+		psCommand := fmt.Sprintf("Add-Type -AssemblyName System.Windows.Forms, System.Drawing; [System.Windows.Forms.Clipboard]::SetImage([System.Drawing.Image]::FromFile('%s'))", absPath)
+		cmd := exec.Command("powershell", "-Command", psCommand)
+		return cmd.Run()
 	default:
-		return fmt.Errorf("unsupported platform")
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 }
 
