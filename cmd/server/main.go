@@ -13,6 +13,7 @@ import (
 	"github.com/aftaab/trelay/internal/config"
 	"github.com/aftaab/trelay/internal/core/analytics"
 	"github.com/aftaab/trelay/internal/core/auth"
+	"github.com/aftaab/trelay/internal/core/folder"
 	"github.com/aftaab/trelay/internal/core/link"
 	"github.com/aftaab/trelay/internal/storage/sqlite"
 )
@@ -45,6 +46,7 @@ func main() {
 	// Initialize repositories
 	linkRepo := sqlite.NewLinkRepository(db)
 	clickRepo := sqlite.NewClickRepository(db)
+	folderRepo := sqlite.NewFolderRepository(db)
 
 	// Initialize services
 	linkService := link.NewService(
@@ -59,6 +61,8 @@ func main() {
 		cfg.App.AnalyticsEnabled,
 	)
 
+	folderService := folder.NewService(folderRepo)
+
 	// Hash API key for comparison
 	apiKeyHash := auth.HashAPIKey(cfg.Auth.APIKey)
 
@@ -69,7 +73,7 @@ func main() {
 		TokenExpiry:     cfg.Auth.TokenExpiry,
 		RateLimitPerMin: cfg.App.RateLimitPerMin,
 		Logger:          logger,
-	}, linkService, analyticsService)
+	}, linkService, analyticsService, folderService)
 
 	// Initialize server
 	server := api.NewServer(api.ServerConfig{

@@ -27,9 +27,12 @@ var (
 	ErrValidation        = errors.New("validation error")
 	ErrMissingField      = errors.New("required field is missing")
 
+	// Folder errors
+	ErrFolderNotFound = errors.New("folder not found")
+
 	// Storage errors
-	ErrDatabase          = errors.New("database error")
-	ErrNotImplemented    = errors.New("not implemented")
+	ErrDatabase       = errors.New("database error")
+	ErrNotImplemented = errors.New("not implemented")
 )
 
 // ValidationError wraps a validation error with field details.

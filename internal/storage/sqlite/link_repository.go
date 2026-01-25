@@ -32,8 +32,8 @@ func (r *LinkRepository) Create(ctx context.Context, link *domain.Link) (*domain
 	_, _ = r.db.ExecContext(ctx, `DELETE FROM links WHERE slug = ? AND deleted_at IS NOT NULL`, link.Slug)
 
 	query := `
-		INSERT INTO links (slug, original_url, domain, password_hash, expires_at, tags, folder_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO links (slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -44,6 +44,7 @@ func (r *LinkRepository) Create(ctx context.Context, link *domain.Link) (*domain
 		link.ExpiresAt,
 		tagsJSON,
 		link.FolderID,
+		link.IsOneTime,
 		link.CreatedAt,
 		link.UpdatedAt,
 	)
@@ -67,7 +68,7 @@ func (r *LinkRepository) Create(ctx context.Context, link *domain.Link) (*domain
 // GetBySlug retrieves a link by its slug.
 func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (*domain.Link, error) {
 	query := `
-		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, click_count, created_at, updated_at, deleted_at
+		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
 		FROM links
 		WHERE slug = ?
 	`
@@ -86,6 +87,7 @@ func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (*domain.Li
 		&expiresAt,
 		&tagsJSON,
 		&folderID,
+		&link.IsOneTime,
 		&link.ClickCount,
 		&link.CreatedAt,
 		&link.UpdatedAt,
@@ -119,7 +121,7 @@ func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (*domain.Li
 // GetByID retrieves a link by its ID.
 func (r *LinkRepository) GetByID(ctx context.Context, id int64) (*domain.Link, error) {
 	query := `
-		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, click_count, created_at, updated_at, deleted_at
+		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
 		FROM links
 		WHERE id = ?
 	`
@@ -138,6 +140,7 @@ func (r *LinkRepository) GetByID(ctx context.Context, id int64) (*domain.Link, e
 		&expiresAt,
 		&tagsJSON,
 		&folderID,
+		&link.IsOneTime,
 		&link.ClickCount,
 		&link.CreatedAt,
 		&link.UpdatedAt,
@@ -303,7 +306,7 @@ func (r *LinkRepository) List(ctx context.Context, filter domain.ListLinksFilter
 	}
 
 	query := `
-		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, click_count, created_at, updated_at, deleted_at
+		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
 		FROM links
 	`
 
@@ -343,6 +346,7 @@ func (r *LinkRepository) List(ctx context.Context, filter domain.ListLinksFilter
 			&expiresAt,
 			&tagsJSON,
 			&folderID,
+			&link.IsOneTime,
 			&link.ClickCount,
 			&link.CreatedAt,
 			&link.UpdatedAt,
@@ -438,6 +442,17 @@ func (r *LinkRepository) IncrementClickCount(ctx context.Context, linkID int64) 
 	_, err := r.db.ExecContext(ctx, query, linkID)
 	if err != nil {
 		return fmt.Errorf("failed to increment click count: %w", err)
+	}
+
+	return nil
+}
+
+func (r *LinkRepository) Burn(ctx context.Context, linkID int64) error {
+	query := `UPDATE links SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`
+
+	_, err := r.db.ExecContext(ctx, query, time.Now(), linkID)
+	if err != nil {
+		return fmt.Errorf("failed to burn one-time link: %w", err)
 	}
 
 	return nil

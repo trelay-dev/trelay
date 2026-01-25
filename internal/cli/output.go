@@ -201,12 +201,59 @@ func printStatsCSV(stats *ClickStats) error {
 	return nil
 }
 
-// Success prints a success message.
+func PrintFolders(folders []Folder, format OutputFormat) error {
+	switch format {
+	case OutputFormatJSON:
+		return printJSON(folders)
+	case OutputFormatCSV:
+		return printFoldersCSV(folders)
+	default:
+		return printFoldersTable(folders)
+	}
+}
+
+func printFoldersTable(folders []Folder) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME\tPARENT\tCREATED")
+	fmt.Fprintln(w, "--\t----\t------\t-------")
+
+	for _, f := range folders {
+		parent := "-"
+		if f.ParentID != nil {
+			parent = strconv.FormatInt(*f.ParentID, 10)
+		}
+
+		created := f.CreatedAt
+		if len(created) > 10 {
+			created = created[:10]
+		}
+
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", f.ID, f.Name, parent, created)
+	}
+
+	return w.Flush()
+}
+
+func printFoldersCSV(folders []Folder) error {
+	w := csv.NewWriter(os.Stdout)
+	defer w.Flush()
+
+	w.Write([]string{"id", "name", "parent_id", "created_at"})
+	for _, f := range folders {
+		parent := ""
+		if f.ParentID != nil {
+			parent = strconv.FormatInt(*f.ParentID, 10)
+		}
+		w.Write([]string{strconv.FormatInt(f.ID, 10), f.Name, parent, f.CreatedAt})
+	}
+
+	return nil
+}
+
 func Success(message string) {
 	fmt.Printf("✓ %s\n", message)
 }
 
-// Error prints an error message.
 func Error(message string) {
 	fmt.Fprintf(os.Stderr, "✗ %s\n", message)
 }

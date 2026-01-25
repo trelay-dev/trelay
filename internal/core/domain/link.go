@@ -13,6 +13,7 @@ type Link struct {
 	Domain       string     `json:"domain,omitempty"`
 	PasswordHash string     `json:"-"`
 	HasPassword  bool       `json:"has_password"`
+	IsOneTime    bool       `json:"is_one_time,omitempty"`
 	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
 	Tags         []string   `json:"tags,omitempty"`
 	FolderID     *int64     `json:"folder_id,omitempty"`
@@ -73,6 +74,7 @@ type CreateLinkRequest struct {
 	TTLHours  int      `json:"ttl_hours,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
 	FolderID  *int64   `json:"folder_id,omitempty"`
+	IsOneTime bool     `json:"is_one_time,omitempty"`
 }
 
 // UpdateLinkRequest contains data for updating an existing link.

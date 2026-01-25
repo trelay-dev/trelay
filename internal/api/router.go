@@ -12,6 +12,7 @@ import (
 	"github.com/aftaab/trelay/internal/api/middleware"
 	"github.com/aftaab/trelay/internal/core/analytics"
 	"github.com/aftaab/trelay/internal/core/auth"
+	"github.com/aftaab/trelay/internal/core/folder"
 	"github.com/aftaab/trelay/internal/core/link"
 	"github.com/aftaab/trelay/internal/core/preview"
 )
@@ -28,6 +29,7 @@ func NewRouter(
 	cfg RouterConfig,
 	linkService *link.Service,
 	analyticsService *analytics.Service,
+	folderService *folder.Service,
 ) *chi.Mux {
 	r := chi.NewRouter()
 
@@ -55,6 +57,7 @@ func NewRouter(
 	linkHandler := handler.NewLinkHandler(linkService)
 	statsHandler := handler.NewStatsHandler(linkService, analyticsService)
 	previewHandler := handler.NewPreviewHandler(previewService)
+	folderHandler := handler.NewFolderHandler(folderService)
 	redirectHandler := handler.NewRedirectHandler(linkService, analyticsService)
 
 	r.Get("/healthz", healthHandler.Health)
@@ -82,6 +85,11 @@ func NewRouter(
 			r.Get("/stats/{slug}/daily", statsHandler.GetDailyStats)
 			r.Get("/stats/{slug}/monthly", statsHandler.GetMonthlyStats)
 			r.Get("/stats/{slug}/referrers", statsHandler.GetReferrers)
+
+			r.Post("/folders", folderHandler.Create)
+			r.Get("/folders", folderHandler.List)
+			r.Get("/folders/{id}", folderHandler.Get)
+			r.Delete("/folders/{id}", folderHandler.Delete)
 		})
 	})
 

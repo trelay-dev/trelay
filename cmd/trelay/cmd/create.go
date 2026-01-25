@@ -18,6 +18,7 @@ var (
 	createTTL      int
 	createTags     []string
 	createBulk     bool
+	createOneTime  bool
 )
 
 var createCmd = &cobra.Command{
@@ -31,6 +32,7 @@ Examples:
   trelay create https://example.com --password secret --ttl 24
   trelay create https://example.com --tags project,docs
   trelay create https://example.com --domain short.example.com
+  trelay create https://example.com --one-time
 
 Bulk create from stdin:
   cat urls.txt | trelay create --bulk
@@ -52,12 +54,13 @@ Bulk create from stdin:
 		}
 
 		req := cli.CreateLinkRequest{
-			URL:      args[0],
-			Slug:     createSlug,
-			Domain:   createDomain,
-			Password: createPassword,
-			TTLHours: createTTL,
-			Tags:     createTags,
+			URL:       args[0],
+			Slug:      createSlug,
+			Domain:    createDomain,
+			Password:  createPassword,
+			TTLHours:  createTTL,
+			Tags:      createTags,
+			IsOneTime: createOneTime,
 		}
 
 		link, err := client.CreateLink(req)
@@ -93,11 +96,12 @@ func createBulkLinks(client *cli.Client) error {
 		}
 
 		req := cli.CreateLinkRequest{
-			URL:      url,
-			Domain:   createDomain,
-			Password: createPassword,
-			TTLHours: createTTL,
-			Tags:     createTags,
+			URL:       url,
+			Domain:    createDomain,
+			Password:  createPassword,
+			TTLHours:  createTTL,
+			Tags:      createTags,
+			IsOneTime: createOneTime,
 		}
 
 		link, err := client.CreateLink(req)
@@ -135,4 +139,5 @@ func init() {
 	createCmd.Flags().IntVarP(&createTTL, "ttl", "t", 0, "Time-to-live in hours (0 = no expiration)")
 	createCmd.Flags().StringSliceVar(&createTags, "tags", nil, "Tags for the link (comma-separated)")
 	createCmd.Flags().BoolVar(&createBulk, "bulk", false, "Read URLs from stdin (one per line)")
+	createCmd.Flags().BoolVar(&createOneTime, "one-time", false, "Create a one-time link (burns after first access)")
 }

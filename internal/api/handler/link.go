@@ -176,6 +176,12 @@ func (h *LinkHandler) List(w http.ResponseWriter, r *http.Request) {
 		Domain: r.URL.Query().Get("domain"),
 	}
 
+	if folderIDStr := r.URL.Query().Get("folder_id"); folderIDStr != "" {
+		if folderID, err := strconv.ParseInt(folderIDStr, 10, 64); err == nil {
+			filter.FolderID = &folderID
+		}
+	}
+
 	if tags := r.URL.Query()["tags"]; len(tags) > 0 {
 		filter.Tags = tags
 	}

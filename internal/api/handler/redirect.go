@@ -37,6 +37,18 @@ func (h *RedirectHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Custom domain validation: if link has a domain set, request host must match
+	if linkData.Domain != "" {
+		requestHost := r.Host
+		if idx := strings.Index(requestHost, ":"); idx != -1 {
+			requestHost = requestHost[:idx]
+		}
+		if requestHost != linkData.Domain {
+			response.NotFound(w, "link not found")
+			return
+		}
+	}
+
 	if linkData.HasPassword {
 		password := r.URL.Query().Get("p")
 		if password == "" {
@@ -51,6 +63,11 @@ func (h *RedirectHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_ = h.linkService.IncrementClick(r.Context(), linkData.ID)
+	}
+
+	// Burn one-time links after first access
+	if linkData.IsOneTime {
+		_ = h.linkService.Burn(r.Context(), linkData.ID)
 	}
 
 	go func() {

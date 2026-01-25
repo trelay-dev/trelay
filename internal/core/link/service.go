@@ -79,6 +79,7 @@ func (s *Service) Create(ctx context.Context, req domain.CreateLinkRequest) (*do
 		Domain:       req.Domain,
 		PasswordHash: passwordHash,
 		HasPassword:  passwordHash != "",
+		IsOneTime:    req.IsOneTime,
 		ExpiresAt:    expiresAt,
 		Tags:         req.Tags,
 		FolderID:     req.FolderID,
@@ -234,4 +235,9 @@ func (s *Service) Count(ctx context.Context, filter domain.ListLinksFilter) (int
 // IncrementClick increments click count (for password-protected links after auth).
 func (s *Service) IncrementClick(ctx context.Context, linkID int64) error {
 	return s.repo.IncrementClickCount(ctx, linkID)
+}
+
+// Burn marks a one-time link as consumed (soft-delete).
+func (s *Service) Burn(ctx context.Context, linkID int64) error {
+	return s.repo.Burn(ctx, linkID)
 }

@@ -40,6 +40,9 @@ type LinkRepository interface {
 
 	// IncrementClickCount atomically increments the click count for a link.
 	IncrementClickCount(ctx context.Context, linkID int64) error
+
+	// Burn marks a one-time link as used (soft-delete).
+	Burn(ctx context.Context, linkID int64) error
 }
 
 // ClickRepository defines the interface for click/analytics persistence.
@@ -64,6 +67,14 @@ type ClickRepository interface {
 
 	// DeleteByLinkID removes all clicks for a link (for GDPR compliance).
 	DeleteByLinkID(ctx context.Context, linkID int64) error
+}
+
+// FolderRepository defines the interface for folder persistence operations.
+type FolderRepository interface {
+	Create(ctx context.Context, folder *domain.Folder) (*domain.Folder, error)
+	GetByID(ctx context.Context, id int64) (*domain.Folder, error)
+	List(ctx context.Context) ([]*domain.Folder, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 // ConfigRepository defines the interface for application config persistence.

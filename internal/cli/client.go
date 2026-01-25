@@ -110,12 +110,13 @@ type Link struct {
 }
 
 type CreateLinkRequest struct {
-	URL      string   `json:"url"`
-	Slug     string   `json:"slug,omitempty"`
-	Domain   string   `json:"domain,omitempty"`
-	Password string   `json:"password,omitempty"`
-	TTLHours int      `json:"ttl_hours,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
+	URL       string   `json:"url"`
+	Slug      string   `json:"slug,omitempty"`
+	Domain    string   `json:"domain,omitempty"`
+	Password  string   `json:"password,omitempty"`
+	TTLHours  int      `json:"ttl_hours,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	IsOneTime bool     `json:"is_one_time,omitempty"`
 }
 
 func (c *Client) CreateLink(req CreateLinkRequest) (*Link, error) {
@@ -225,4 +226,37 @@ func (c *Client) GetStats(slug string) (*ClickStats, error) {
 		return nil, err
 	}
 	return &stats, nil
+}
+
+type Folder struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	ParentID  *int64 `json:"parent_id,omitempty"`
+	CreatedAt string `json:"created_at"`
+}
+
+type createFolderRequest struct {
+	Name     string `json:"name"`
+	ParentID *int64 `json:"parent_id,omitempty"`
+}
+
+func (c *Client) CreateFolder(name string, parentID *int64) (*Folder, error) {
+	req := createFolderRequest{Name: name, ParentID: parentID}
+	var folder Folder
+	if err := c.do("POST", "/api/v1/folders", req, &folder); err != nil {
+		return nil, err
+	}
+	return &folder, nil
+}
+
+func (c *Client) ListFolders() ([]Folder, error) {
+	var folders []Folder
+	if err := c.do("GET", "/api/v1/folders", nil, &folders); err != nil {
+		return nil, err
+	}
+	return folders, nil
+}
+
+func (c *Client) DeleteFolder(id int64) error {
+	return c.do("DELETE", fmt.Sprintf("/api/v1/folders/%d", id), nil, nil)
 }
