@@ -36,7 +36,7 @@
 <div class="link-row">
 	<div class="link-main">
 		<div class="link-slug-row">
-			<span class="link-slug mono">/{link.slug}</span>
+			<span class="link-slug">/{link.slug}</span>
 			{#if link.has_password}
 				<span class="badge badge-warning">Protected</span>
 			{/if}

@@ -8,6 +8,7 @@
 	let linkList = $state<Link[]>([]);
 	let loading = $state(true);
 	let search = $state('');
+	let searchTimeout: ReturnType<typeof setTimeout>;
 	
 	let showCreateModal = $state(false);
 	let createLoading = $state(false);
@@ -28,6 +29,15 @@
 		await loadLinks();
 	});
 	
+	// Reactive search with debounce
+	$effect(() => {
+		const term = search;
+		clearTimeout(searchTimeout);
+		searchTimeout = setTimeout(() => {
+			loadLinks();
+		}, 300);
+	});
+	
 	async function loadLinks() {
 		loading = true;
 		try {
@@ -40,10 +50,6 @@
 		} finally {
 			loading = false;
 		}
-	}
-	
-	async function handleSearch() {
-		await loadLinks();
 	}
 	
 	async function handleCreateLink() {
@@ -123,9 +129,7 @@
 			type="search"
 			placeholder="Search links..."
 			bind:value={search}
-			onkeydown={(e) => e.key === 'Enter' && handleSearch()}
 		/>
-		<Button variant="secondary" onclick={handleSearch}>Search</Button>
 	</div>
 	
 	<Card padding="none">

@@ -1,8 +1,19 @@
 <script lang="ts">
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { auth } from '$lib/stores/auth';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	
 	let mobileMenuOpen = $state(false);
+	
+	function handleLogout() {
+		auth.logout();
+		goto('/');
+	}
+	
+	function isActive(path: string): boolean {
+		return $page.url.pathname === path || $page.url.pathname.startsWith(path + '/');
+	}
 </script>
 
 <nav class="navbar">
@@ -13,15 +24,15 @@
 		</a>
 		
 		<div class="nav-links" class:open={mobileMenuOpen}>
-			<a href="/dashboard" class="nav-link">Dashboard</a>
-			<a href="/links" class="nav-link">Links</a>
-			<a href="/folders" class="nav-link">Folders</a>
+			<a href="/dashboard" class="nav-link" class:active={isActive('/dashboard')}>Dashboard</a>
+			<a href="/links" class="nav-link" class:active={isActive('/links')}>Links</a>
+			<a href="/folders" class="nav-link" class:active={isActive('/folders')}>Folders</a>
 		</div>
 		
 		<div class="nav-actions">
 			<ThemeToggle />
-		{#if $auth.isAuthenticated}
-			<button class="logout-btn" onclick={() => auth.logout()} aria-label="Logout">
+			{#if $auth.isAuthenticated}
+				<button class="logout-btn" onclick={handleLogout} aria-label="Logout" title="Logout">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
 						<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
 						<polyline points="16 17 21 12 16 7"/>
@@ -98,6 +109,11 @@
 	.nav-link:hover {
 		color: var(--text-primary);
 		background: var(--bg-hover);
+	}
+	
+	.nav-link.active {
+		color: var(--accent-primary);
+		background: rgba(233, 30, 99, 0.08);
 	}
 	
 	.nav-actions {
