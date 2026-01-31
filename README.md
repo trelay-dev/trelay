@@ -11,6 +11,7 @@ This project is currently under active development.
 
 ## Features
 - URL Shortening with custom slugs and expiration.
+- Web Dashboard for managing links and folders.
 - One-time links (consume on first access).
 - Folder management for organization.
 - Custom domain routing validation.
@@ -21,6 +22,7 @@ This project is currently under active development.
 
 ## Prerequisites
 - Go 1.21 or higher
+- Bun 1.0 or higher (for frontend)
 - SQLite 3
 - Make (optional)
 
@@ -35,6 +37,18 @@ make build-server
 ./bin/trelay-server
 ```
 
+### Web Dashboard
+1. Navigate to the frontend directory and install dependencies:
+```bash
+cd frontend
+bun install
+```
+2. Start the development server:
+```bash
+bun run dev
+```
+The dashboard will be available at `http://localhost:5173`.
+
 ### CLI
 1. Build the CLI:
 ```bash
@@ -45,6 +59,11 @@ make build-cli
 ./bin/trelay config set api-url http://localhost:8080
 ./bin/trelay config set api-key your-api-key
 ```
+
+## Stack
+- Backend: Go, Chi, SQLite
+- Frontend: SvelteKit, Bun, DM Sans
+- CLI: Cobra
 
 ## Documentation
 Full documentation for the CLI is available via:
