@@ -51,6 +51,7 @@ node_modules/
 build/
 
 # Agents doc
+inspo/
 Agents.md
 trelay
 
