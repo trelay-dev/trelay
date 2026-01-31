@@ -1,10 +1,20 @@
-# Trelay
+<p align="center">
+  <img src="frontend/static/assets/logo.png" alt="Trelay Logo" width="80" height="80" />
+</p>
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/trelay-dev/trelay)](https://golang.org)
-[![License](https://img.shields.io/github/license/trelay-dev/trelay)](LICENSE)
-[![Status](https://img.shields.io/badge/status-active_development-orange)](#)
+<h1 align="center">Trelay</h1>
 
-A developer-first, privacy-respecting URL manager with a robust API and CLI.
+<p align="center">
+  <img src="https://img.shields.io/github/go-mod/go-version/trelay-dev/trelay" alt="Go Version" />
+  <img src="https://img.shields.io/github/license/trelay-dev/trelay" alt="License" />
+  <img src="https://img.shields.io/badge/status-active_development-orange" alt="Status" />
+  <img src="https://img.shields.io/badge/frontend-SvelteKit-ff3e00" alt="Frontend" />
+  <img src="https://img.shields.io/badge/runtime-Bun-fbf0df" alt="Runtime" />
+</p>
+
+<p align="center">
+  A developer-first, privacy-respecting URL manager with a robust API and CLI.
+</p>
 
 ## Current Status
 This project is currently under active development.
@@ -59,11 +69,6 @@ make build-cli
 ./bin/trelay config set api-url http://localhost:8080
 ./bin/trelay config set api-key your-api-key
 ```
-
-## Stack
-- Backend: Go, Chi, SQLite
-- Frontend: SvelteKit, Bun, DM Sans
-- CLI: Cobra
 
 ## Documentation
 Full documentation for the CLI is available via:
