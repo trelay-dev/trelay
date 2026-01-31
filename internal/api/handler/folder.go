@@ -33,6 +33,10 @@ func (h *FolderHandler) Create(w http.ResponseWriter, r *http.Request) {
 			response.ValidationError(w, ve.Field, ve.Message)
 			return
 		}
+		if err == domain.ErrParentFolderNotFound {
+			response.ValidationError(w, "parent_id", "parent folder not found")
+			return
+		}
 		response.InternalError(w)
 		return
 	}

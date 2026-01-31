@@ -28,7 +28,8 @@ var (
 	ErrMissingField      = errors.New("required field is missing")
 
 	// Folder errors
-	ErrFolderNotFound = errors.New("folder not found")
+	ErrFolderNotFound       = errors.New("folder not found")
+	ErrParentFolderNotFound = errors.New("parent folder not found")
 
 	// Storage errors
 	ErrDatabase       = errors.New("database error")

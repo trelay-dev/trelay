@@ -21,6 +21,17 @@ func (s *Service) Create(ctx context.Context, req domain.CreateFolderRequest) (*
 		return nil, domain.NewValidationError("name", "folder name is required")
 	}
 
+	// Validate parent folder exists if provided
+	if req.ParentID != nil {
+		_, err := s.repo.GetByID(ctx, *req.ParentID)
+		if err != nil {
+			if err == domain.ErrFolderNotFound {
+				return nil, domain.ErrParentFolderNotFound
+			}
+			return nil, err
+		}
+	}
+
 	folder := &domain.Folder{
 		Name:      req.Name,
 		ParentID:  req.ParentID,
