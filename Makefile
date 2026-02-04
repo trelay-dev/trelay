@@ -1,4 +1,4 @@
-.PHONY: all build build-server build-cli build-frontend run test lint clean migrate dev dev-frontend
+.PHONY: all build build-server build-cli run test lint clean migrate dev
 
 # Binary names
 SERVER_BINARY=trelay-server
@@ -19,7 +19,7 @@ LDFLAGS=-ldflags "-s -w"
 
 all: build
 
-build: build-server build-cli build-frontend
+build: build-server build-cli
 
 build-server:
 	@mkdir -p $(BIN_DIR)
@@ -29,17 +29,11 @@ build-cli:
 	@mkdir -p $(BIN_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(CLI_BINARY) ./cmd/trelay
 
-build-frontend:
-	cd frontend && bun install && bun run build
-
 run: build-server
 	./$(BIN_DIR)/$(SERVER_BINARY)
 
 dev:
 	$(GOCMD) run ./cmd/server
-
-dev-frontend:
-	cd frontend && bun run dev
 
 test:
 	$(GOTEST) -v -race -cover ./...
