@@ -88,12 +88,16 @@
 	async function handleDeleteFolder(id: number) {
 		if (!confirm('Delete this folder?')) return;
 		
-		const res = await folders.delete(id);
-		if (res.success) {
-			if (selectedFolder?.id === id) {
-				clearSelection();
+		try {
+			const res = await folders.delete(id);
+			if (res.success) {
+				if (selectedFolder?.id === id) {
+					clearSelection();
+				}
+				folderList = folderList.filter(f => f.id !== id);
 			}
-			await loadFolders();
+		} catch (e) {
+			console.error('Failed to delete folder:', e);
 		}
 	}
 	

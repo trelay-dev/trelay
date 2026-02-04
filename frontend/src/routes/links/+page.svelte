@@ -480,23 +480,38 @@
 	
 	.select-input {
 		width: 100%;
-		padding: var(--space-2) var(--space-3);
-		font-size: var(--text-base);
+		height: 40px;
+		padding: 0 var(--space-3);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
 		color: var(--text-primary);
-		background: var(--bg-primary);
+		background-color: var(--bg-secondary);
 		border: 1px solid var(--border-light);
 		border-radius: var(--radius-md);
 		cursor: pointer;
-		transition: border-color var(--transition-fast);
+		transition: all var(--transition-fast);
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 12px center;
+		padding-right: 36px;
 	}
 	
 	.select-input:hover {
 		border-color: var(--border-medium);
+		background-color: var(--bg-tertiary);
 	}
 	
 	.select-input:focus {
 		outline: none;
 		border-color: var(--accent-primary);
+		box-shadow: 0 0 0 3px rgba(var(--accent-primary-rgb, 59, 130, 246), 0.1);
+	}
+	
+	.select-input option {
+		background-color: var(--bg-primary);
+		color: var(--text-primary);
+		padding: var(--space-2);
 	}
 	
 	.checkbox-label {
