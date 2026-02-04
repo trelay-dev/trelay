@@ -96,6 +96,7 @@ type AppConfig struct {
 	SlugLength        int
 	MaxURLLength      int
 	RateLimitPerMin   int
+	StaticDir         string
 }
 
 // Load reads configuration from environment variables.
@@ -128,6 +129,7 @@ func Load() (*Config, error) {
 			SlugLength:       getEnvInt("SLUG_LENGTH", 6),
 			MaxURLLength:     getEnvInt("MAX_URL_LENGTH", 2048),
 			RateLimitPerMin:  getEnvInt("RATE_LIMIT_PER_MIN", 100),
+			StaticDir:        getEnv("STATIC_DIR", ""),
 		},
 	}
 

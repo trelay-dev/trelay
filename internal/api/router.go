@@ -1,6 +1,9 @@
 package api
 
 import (
+	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,6 +26,7 @@ type RouterConfig struct {
 	TokenExpiry     time.Duration
 	RateLimitPerMin int
 	Logger          zerolog.Logger
+	StaticDir       string
 }
 
 func NewRouter(
@@ -95,5 +99,48 @@ func NewRouter(
 
 	r.Get("/{slug}", redirectHandler.Redirect)
 
+	if cfg.StaticDir != "" {
+		serveStaticFiles(r, cfg.StaticDir)
+	}
+
 	return r
 }
+
+func serveStaticFiles(r *chi.Mux, staticDir string) {
+	if _, err := os.Stat(staticDir); os.IsNotExist(err) {
+		return
+	}
+
+	fileServer := http.FileServer(http.Dir(staticDir))
+
+	r.Get("/_app/*", func(w http.ResponseWriter, req *http.Request) {
+		fileServer.ServeHTTP(w, req)
+	})
+
+	r.Get("/assets/*", func(w http.ResponseWriter, req *http.Request) {
+		fileServer.ServeHTTP(w, req)
+	})
+
+	r.Get("/favicon.png", func(w http.ResponseWriter, req *http.Request) {
+		fileServer.ServeHTTP(w, req)
+	})
+
+	spaHandler := func(w http.ResponseWriter, req *http.Request) {
+		path := filepath.Join(staticDir, req.URL.Path)
+
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			fileServer.ServeHTTP(w, req)
+			return
+		}
+
+		indexPath := filepath.Join(staticDir, "index.html")
+		http.ServeFile(w, req, indexPath)
+	}
+
+	spaRoutes := []string{"/dashboard", "/links", "/folders", "/trash", "/settings"}
+	for _, route := range spaRoutes {
+		r.Get(route, spaHandler)
+		r.Get(route+"/*", spaHandler)
+	}
+}
+

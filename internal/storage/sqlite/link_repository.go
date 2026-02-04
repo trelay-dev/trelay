@@ -278,7 +278,9 @@ func (r *LinkRepository) List(ctx context.Context, filter domain.ListLinksFilter
 	var conditions []string
 	var args []interface{}
 
-	if !filter.IncludeDeleted {
+	if filter.OnlyDeleted {
+		conditions = append(conditions, "deleted_at IS NOT NULL")
+	} else if !filter.IncludeDeleted {
 		conditions = append(conditions, "deleted_at IS NULL")
 	}
 
@@ -386,7 +388,9 @@ func (r *LinkRepository) Count(ctx context.Context, filter domain.ListLinksFilte
 	var conditions []string
 	var args []interface{}
 
-	if !filter.IncludeDeleted {
+	if filter.OnlyDeleted {
+		conditions = append(conditions, "deleted_at IS NOT NULL")
+	} else if !filter.IncludeDeleted {
 		conditions = append(conditions, "deleted_at IS NULL")
 	}
 

@@ -95,11 +95,12 @@ export interface ClickStats {
 
 // API functions
 export const links = {
-	list: (params?: { search?: string; folder_id?: number }) => {
+	list: (params?: { search?: string; folder_id?: number; only_deleted?: boolean }) => {
 		let path = '/links';
 		const query = new URLSearchParams();
 		if (params?.search) query.set('search', params.search);
 		if (params?.folder_id) query.set('folder_id', String(params.folder_id));
+		if (params?.only_deleted) query.set('only_deleted', 'true');
 		if (query.toString()) path += `?${query}`;
 		return api.get<Link[]>(path);
 	},
@@ -109,7 +110,8 @@ export const links = {
 	delete: (slug: string, permanent = false) => 
 		api.delete<void>(`/links/${slug}${permanent ? '?permanent=true' : ''}`),
 	bulkDelete: (slugs: string[], permanent = false) => 
-		api.delete<{ deleted: string[]; failed: string[] }>('/links', { slugs, permanent })
+		api.delete<{ deleted: string[]; failed: string[] }>('/links', { slugs, permanent }),
+	restore: (slug: string) => api.post<{ restored: boolean }>(`/links/${slug}/restore`)
 };
 
 export const folders = {

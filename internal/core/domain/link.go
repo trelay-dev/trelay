@@ -88,11 +88,12 @@ type UpdateLinkRequest struct {
 
 // ListLinksFilter contains filter options for listing links.
 type ListLinksFilter struct {
-	Search    string   `json:"search,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	FolderID  *int64   `json:"folder_id,omitempty"`
-	Domain    string   `json:"domain,omitempty"`
-	Limit     int      `json:"limit,omitempty"`
-	Offset    int      `json:"offset,omitempty"`
-	IncludeDeleted bool `json:"include_deleted,omitempty"`
+	Search         string   `json:"search,omitempty"`
+	Tags           []string `json:"tags,omitempty"`
+	FolderID       *int64   `json:"folder_id,omitempty"`
+	Domain         string   `json:"domain,omitempty"`
+	Limit          int      `json:"limit,omitempty"`
+	Offset         int      `json:"offset,omitempty"`
+	IncludeDeleted bool     `json:"include_deleted,omitempty"`
+	OnlyDeleted    bool     `json:"only_deleted,omitempty"`
 }

@@ -27,6 +27,7 @@
 			<a href="/dashboard" class="nav-link" class:active={isActive('/dashboard')}>Dashboard</a>
 			<a href="/links" class="nav-link" class:active={isActive('/links')}>Links</a>
 			<a href="/folders" class="nav-link" class:active={isActive('/folders')}>Folders</a>
+			<a href="/trash" class="nav-link" class:active={isActive('/trash')}>Trash</a>
 			<a href="/settings" class="nav-link" class:active={isActive('/settings')}>Settings</a>
 		</div>
 		

@@ -199,6 +199,7 @@ func (h *LinkHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter.IncludeDeleted = r.URL.Query().Get("include_deleted") == "true"
+	filter.OnlyDeleted = r.URL.Query().Get("only_deleted") == "true"
 
 	links, err := h.service.List(r.Context(), filter)
 	if err != nil {

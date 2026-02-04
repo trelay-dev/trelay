@@ -73,6 +73,7 @@ func main() {
 		TokenExpiry:     cfg.Auth.TokenExpiry,
 		RateLimitPerMin: cfg.App.RateLimitPerMin,
 		Logger:          logger,
+		StaticDir:       cfg.App.StaticDir,
 	}, linkService, analyticsService, folderService)
 
 	// Initialize server
