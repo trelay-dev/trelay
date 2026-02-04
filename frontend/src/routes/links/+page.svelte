@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { Button, Input, Card, LinkRow, Modal } from '$lib/components';
+	import { Button, Input, Card, LinkRow, Modal, QRModal } from '$lib/components';
 	import { links, type Link, type CreateLinkRequest } from '$lib/utils/api';
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	
 	let linkList = $state<Link[]>([]);
 	let loading = $state(true);
 	let search = $state('');
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	
+	// Create modal
 	let showCreateModal = $state(false);
 	let createLoading = $state(false);
 	let createError = $state('');
@@ -19,6 +21,26 @@
 	let newTtl = $state('');
 	let newTags = $state('');
 	let isOneTime = $state(false);
+	
+	// Edit modal
+	let showEditModal = $state(false);
+	let editLink = $state<Link | null>(null);
+	let editLoading = $state(false);
+	let editError = $state('');
+	let editUrl = $state('');
+	let editTags = $state('');
+	
+	// QR modal
+	let showQRModal = $state(false);
+	let qrSlug = $state('');
+	
+	// Stats modal
+	let showStatsModal = $state(false);
+	let statsLink = $state<Link | null>(null);
+	let statsData = $state<{ total_clicks: number; clicks_by_day?: { date: string; clicks: number }[] } | null>(null);
+	let statsLoading = $state(false);
+	
+	let baseUrl = $derived(browser ? window.location.origin : '');
 	
 	onMount(async () => {
 		if (!$auth.isAuthenticated) {
@@ -103,6 +125,69 @@
 			await loadLinks();
 		}
 	}
+	
+	function handleQR(link: Link) {
+		qrSlug = link.slug;
+		showQRModal = true;
+	}
+	
+	function handleEdit(link: Link) {
+		editLink = link;
+		editUrl = link.original_url;
+		editTags = link.tags?.join(', ') || '';
+		editError = '';
+		showEditModal = true;
+	}
+	
+	async function saveEdit() {
+		if (!editLink) return;
+		
+		editLoading = true;
+		editError = '';
+		
+		try {
+			const req: Partial<CreateLinkRequest> = {};
+			if (editUrl !== editLink.original_url) req.url = editUrl;
+			if (editTags.trim()) {
+				req.tags = editTags.split(',').map(t => t.trim()).filter(Boolean);
+			}
+			
+			const res = await links.update(editLink.slug, req);
+			
+			if (res.success) {
+				showEditModal = false;
+				editLink = null;
+				await loadLinks();
+			} else {
+				editError = res.error?.message || 'Failed to update link';
+			}
+		} catch (e) {
+			editError = 'Failed to update link';
+		} finally {
+			editLoading = false;
+		}
+	}
+	
+	async function handleStats(link: Link) {
+		statsLink = link;
+		statsData = null;
+		statsLoading = true;
+		showStatsModal = true;
+		
+		try {
+			const res = await fetch(`/api/v1/stats/${link.slug}`, {
+				headers: { 'X-API-Key': localStorage.getItem('trelay-api-key') || '' }
+			});
+			const data = await res.json();
+			if (data.success) {
+				statsData = data.data;
+			}
+		} catch (e) {
+			console.error('Failed to load stats:', e);
+		} finally {
+			statsLoading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -147,12 +232,87 @@
 		{:else}
 			<div class="links-list">
 				{#each linkList as link}
-					<LinkRow {link} ondelete={handleDeleteLink} />
+					<LinkRow 
+						{link} 
+						ondelete={handleDeleteLink} 
+						onedit={handleEdit}
+						onqr={handleQR}
+						onstats={handleStats}
+					/>
 				{/each}
 			</div>
 		{/if}
 	</Card>
 </div>
+
+<QRModal 
+	open={showQRModal} 
+	slug={qrSlug} 
+	{baseUrl}
+	onclose={() => showQRModal = false} 
+/>
+
+<Modal
+	open={showEditModal}
+	title="Edit Link"
+	onclose={() => { showEditModal = false; editLink = null; }}
+>
+	<form class="create-form" onsubmit={(e) => { e.preventDefault(); saveEdit(); }}>
+		<div class="edit-slug">
+			<span class="edit-slug-label">Slug</span>
+			<span class="edit-slug-value">/{editLink?.slug}</span>
+		</div>
+		<Input
+			type="url"
+			label="URL"
+			placeholder="https://example.com"
+			bind:value={editUrl}
+			error={editError}
+		/>
+		<Input
+			type="text"
+			label="Tags (comma-separated)"
+			placeholder="project, docs"
+			bind:value={editTags}
+		/>
+		<div class="form-actions">
+			<Button variant="secondary" onclick={() => { showEditModal = false; editLink = null; }}>Cancel</Button>
+			<Button type="submit" loading={editLoading}>Save</Button>
+		</div>
+	</form>
+</Modal>
+
+<Modal
+	open={showStatsModal}
+	title={statsLink ? `Stats: /${statsLink.slug}` : 'Stats'}
+	onclose={() => { showStatsModal = false; statsLink = null; }}
+>
+	<div class="stats-content">
+		{#if statsLoading}
+			<div class="stats-loading">Loading stats...</div>
+		{:else if statsData}
+			<div class="stats-hero">
+				<span class="stats-hero-value">{statsData.total_clicks.toLocaleString()}</span>
+				<span class="stats-hero-label">Total Clicks</span>
+			</div>
+			{#if statsData.clicks_by_day && statsData.clicks_by_day.length > 0}
+				<div class="stats-chart">
+					<h4 class="stats-chart-title">Last 7 Days</h4>
+					<div class="stats-bars">
+						{#each statsData.clicks_by_day.slice(-7) as day}
+							<div class="stats-bar-item">
+								<div class="stats-bar" style="height: {Math.max(4, (day.clicks / Math.max(...statsData.clicks_by_day!.map(d => d.clicks))) * 80)}px"></div>
+								<span class="stats-bar-label">{day.date.slice(5)}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		{:else}
+			<div class="stats-loading">No stats available</div>
+		{/if}
+	</div>
+</Modal>
 
 <Modal
 	open={showCreateModal}
@@ -286,5 +446,100 @@
 		justify-content: flex-end;
 		gap: var(--space-3);
 		margin-top: var(--space-2);
+	}
+	
+	.edit-slug {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	
+	.edit-slug-label {
+		font-size: var(--text-sm);
+		font-weight: var(--font-medium);
+		color: var(--text-secondary);
+	}
+	
+	.edit-slug-value {
+		font-size: var(--text-base);
+		color: var(--text-primary);
+		padding: var(--space-2) var(--space-3);
+		background: var(--bg-tertiary);
+		border-radius: var(--radius-md);
+	}
+	
+	.stats-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+	}
+	
+	.stats-loading {
+		text-align: center;
+		color: var(--text-muted);
+		padding: var(--space-8);
+	}
+	
+	.stats-hero {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	
+	.stats-hero-value {
+		font-size: var(--text-hero);
+		font-weight: var(--font-bold);
+		color: var(--text-primary);
+		line-height: 1;
+	}
+	
+	.stats-hero-label {
+		font-size: var(--text-sm);
+		color: var(--text-tertiary);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	
+	.stats-chart {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	
+	.stats-chart-title {
+		font-size: var(--text-sm);
+		font-weight: var(--font-medium);
+		color: var(--text-secondary);
+	}
+	
+	.stats-bars {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: var(--space-2);
+		height: 100px;
+		padding-bottom: var(--space-6);
+	}
+	
+	.stats-bar-item {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	
+	.stats-bar {
+		width: 100%;
+		max-width: 40px;
+		background: var(--accent-primary);
+		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+		transition: height var(--transition-slow);
+	}
+	
+	.stats-bar-label {
+		font-size: var(--text-xs);
+		color: var(--text-muted);
 	}
 </style>

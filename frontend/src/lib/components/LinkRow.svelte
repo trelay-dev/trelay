@@ -6,9 +6,11 @@
 		baseUrl?: string;
 		ondelete?: (slug: string) => void;
 		onedit?: (link: Link) => void;
+		onqr?: (link: Link) => void;
+		onstats?: (link: Link) => void;
 	}
 	
-	let { link, baseUrl = '', ondelete, onedit }: Props = $props();
+	let { link, baseUrl = '', ondelete, onedit, onqr, onstats }: Props = $props();
 	
 	let copied = $state(false);
 	
@@ -72,6 +74,27 @@
 				</svg>
 			{/if}
 		</button>
+		{#if onqr}
+			<button class="action-btn" onclick={() => onqr(link)} title="QR Code">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<rect x="3" y="3" width="7" height="7"/>
+					<rect x="14" y="3" width="7" height="7"/>
+					<rect x="3" y="14" width="7" height="7"/>
+					<rect x="14" y="14" width="4" height="4"/>
+					<line x1="21" y1="14" x2="21" y2="21"/>
+					<line x1="14" y1="21" x2="21" y2="21"/>
+				</svg>
+			</button>
+		{/if}
+		{#if onstats}
+			<button class="action-btn" onclick={() => onstats(link)} title="Stats">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<line x1="18" y1="20" x2="18" y2="10"/>
+					<line x1="12" y1="20" x2="12" y2="4"/>
+					<line x1="6" y1="20" x2="6" y2="14"/>
+				</svg>
+			</button>
+		{/if}
 		{#if onedit}
 			<button class="action-btn" onclick={() => onedit(link)} title="Edit">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
