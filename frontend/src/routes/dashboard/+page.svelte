@@ -17,8 +17,9 @@
 	let newUrl = $state('');
 	let newSlug = $state('');
 	
-	// Chart data (last 7 days mock for now)
+	// Chart data (aggregated from all links' daily stats)
 	let chartData = $state<{label: string; value: number}[]>([]);
+	let weekClicks = $state(0);
 	
 	onMount(async () => {
 		if (!$auth.isAuthenticated) {
@@ -42,17 +43,8 @@
 				totalLinks = linksRes.data.length;
 				totalClicks = linksRes.data.reduce((sum, l) => sum + l.click_count, 0);
 				
-				// Generate chart data from recent links
-				const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-				const today = new Date();
-				chartData = Array.from({ length: 7 }, (_, i) => {
-					const d = new Date(today);
-					d.setDate(d.getDate() - (6 - i));
-					return {
-						label: days[d.getDay()],
-						value: Math.floor(Math.random() * 50) + 5
-					};
-				});
+				// Aggregate daily stats from top links (to avoid too many API calls)
+				await loadChartData(linksRes.data.slice(0, 10));
 			}
 			
 			if (foldersRes.success && foldersRes.data) {
@@ -63,6 +55,48 @@
 		} finally {
 			loading = false;
 		}
+	}
+	
+	async function loadChartData(topLinks: Link[]) {
+		const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+		const today = new Date();
+		const dayMap = new Map<string, number>();
+		
+		// Initialize last 7 days
+		for (let i = 6; i >= 0; i--) {
+			const d = new Date(today);
+			d.setDate(d.getDate() - i);
+			const key = d.toISOString().split('T')[0];
+			dayMap.set(key, 0);
+		}
+		
+		// Fetch daily stats for each link and aggregate
+		const apiKey = localStorage.getItem('trelay-api-key') || '';
+		const statsPromises = topLinks.map(link => 
+			fetch(`/api/v1/stats/${link.slug}/daily`, {
+				headers: { 'X-API-Key': apiKey }
+			}).then(r => r.json()).catch(() => ({ success: false }))
+		);
+		
+		const results = await Promise.all(statsPromises);
+		
+		for (const res of results) {
+			if (res.success && res.data) {
+				for (const day of res.data) {
+					if (dayMap.has(day.date)) {
+						dayMap.set(day.date, (dayMap.get(day.date) || 0) + day.clicks);
+					}
+				}
+			}
+		}
+		
+		// Convert to chart format
+		chartData = Array.from(dayMap.entries()).map(([date, clicks]) => ({
+			label: days[new Date(date).getDay()],
+			value: clicks
+		}));
+		
+		weekClicks = chartData.reduce((sum, d) => sum + d.value, 0);
 	}
 	
 	async function handleCreateLink() {
@@ -131,7 +165,7 @@
 			<StatCard label="Total Links" value={totalLinks.toLocaleString()} icon="link" />
 			<StatCard label="Total Clicks" value={totalClicks.toLocaleString()} icon="click" />
 			<StatCard label="Folders" value={totalFolders.toLocaleString()} icon="folder" />
-			<StatCard label="This Week" value={chartData.reduce((s, d) => s + d.value, 0).toLocaleString()} icon="chart" />
+			<StatCard label="This Week" value={weekClicks.toLocaleString()} icon="chart" />
 		</div>
 		
 		<div class="dashboard-grid">
