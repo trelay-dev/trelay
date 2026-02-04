@@ -104,9 +104,13 @@
 	async function handleDeleteLink(slug: string) {
 		if (!confirm('Delete this link?')) return;
 		
-		const res = await links.delete(slug);
-		if (res.success && selectedFolder) {
-			await selectFolder(selectedFolder);
+		try {
+			const res = await links.delete(slug);
+			if (res.success) {
+				folderLinks = folderLinks.filter(l => l.slug !== slug);
+			}
+		} catch (e) {
+			console.error('Failed to delete link:', e);
 		}
 	}
 	
@@ -168,7 +172,7 @@
 				</div>
 			{:else}
 				<div class="links-list">
-					{#each folderLinks as link}
+					{#each folderLinks as link (link.id)}
 						<LinkRow {link} ondelete={handleDeleteLink} />
 					{/each}
 				</div>
@@ -186,7 +190,7 @@
 		</Card>
 	{:else}
 		<div class="folders-grid">
-			{#each folderList as folder}
+			{#each folderList as folder (folder.id)}
 				<div class="folder-card-wrapper">
 					<button class="folder-card" onclick={() => selectFolder(folder)}>
 						<div class="folder-icon">

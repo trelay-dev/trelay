@@ -132,9 +132,14 @@
 	async function handleDeleteLink(slug: string) {
 		if (!confirm('Delete this link?')) return;
 		
-		const res = await links.delete(slug);
-		if (res.success) {
-			await loadData();
+		try {
+			const res = await links.delete(slug);
+			if (res.success) {
+				linkList = linkList.filter(l => l.slug !== slug);
+				totalLinks--;
+			}
+		} catch (e) {
+			console.error('Failed to delete link:', e);
 		}
 	}
 </script>
@@ -185,7 +190,7 @@
 					<a href="/links" class="card-link">View all</a>
 				</div>
 				<div class="links-list">
-					{#each linkList as link}
+					{#each linkList as link (link.id)}
 						<LinkRow {link} ondelete={handleDeleteLink} />
 					{:else}
 						<div class="empty-state">No links yet. Create your first one!</div>

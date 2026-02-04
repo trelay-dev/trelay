@@ -136,9 +136,13 @@
 	async function handleDeleteLink(slug: string) {
 		if (!confirm('Delete this link?')) return;
 		
-		const res = await links.delete(slug);
-		if (res.success) {
-			await loadLinks();
+		try {
+			const res = await links.delete(slug);
+			if (res.success) {
+				linkList = linkList.filter(l => l.slug !== slug);
+			}
+		} catch (e) {
+			console.error('Failed to delete link:', e);
 		}
 	}
 	
@@ -253,7 +257,7 @@
 			</div>
 		{:else}
 			<div class="links-list">
-				{#each linkList as link}
+				{#each linkList as link (link.id)}
 					<LinkRow 
 						{link} 
 						ondelete={handleDeleteLink} 

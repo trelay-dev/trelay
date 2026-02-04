@@ -96,7 +96,7 @@
 			</div>
 		{:else}
 			<div class="links-list">
-				{#each deletedLinks as link}
+				{#each deletedLinks as link (link.id)}
 					<div class="trash-item">
 						<div class="trash-link-info">
 							<span class="link-slug">/{link.slug}</span>
