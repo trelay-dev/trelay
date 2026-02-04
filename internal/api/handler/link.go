@@ -233,7 +233,7 @@ func (h *LinkHandler) handleError(w http.ResponseWriter, err error) {
 	case domain.ErrSlugInvalid:
 		response.ValidationError(w, "slug", "slug contains invalid characters")
 	case domain.ErrSlugTooShort:
-		response.ValidationError(w, "slug", "slug is too short (minimum 4 characters)")
+		response.ValidationError(w, "slug", "slug is too short (minimum 2 characters)")
 	case domain.ErrSlugTooLong:
 		response.ValidationError(w, "slug", "slug is too long (maximum 32 characters)")
 	case domain.ErrURLInvalid:

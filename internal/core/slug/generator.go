@@ -13,7 +13,7 @@ const (
 	// Base62 charset for URL-safe slugs
 	charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-	MinSlugLength = 4
+	MinSlugLength = 2
 	MaxSlugLength = 32
 	DefaultLength = 6
 )

@@ -8,3 +8,4 @@ export { default as StatCard } from './StatCard.svelte';
 export { default as LinkRow } from './LinkRow.svelte';
 export { default as Chart } from './Chart.svelte';
 export { default as QRModal } from './QRModal.svelte';
+export { default as LinkPreview } from './LinkPreview.svelte';

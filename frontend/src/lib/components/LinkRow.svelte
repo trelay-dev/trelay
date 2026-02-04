@@ -8,9 +8,12 @@
 		onedit?: (link: Link) => void;
 		onqr?: (link: Link) => void;
 		onstats?: (link: Link) => void;
+		selectable?: boolean;
+		selected?: boolean;
+		onselect?: (slug: string) => void;
 	}
 	
-	let { link, baseUrl = '', ondelete, onedit, onqr, onstats }: Props = $props();
+	let { link, baseUrl = '', ondelete, onedit, onqr, onstats, selectable = false, selected = false, onselect }: Props = $props();
 	
 	let copied = $state(false);
 	
@@ -35,7 +38,12 @@
 	}
 </script>
 
-<div class="link-row">
+<div class="link-row" class:selected>
+	{#if selectable}
+		<label class="link-checkbox">
+			<input type="checkbox" checked={selected} onchange={() => onselect?.(link.slug)} />
+		</label>
+	{/if}
 	<div class="link-main">
 		<div class="link-slug-row">
 			<span class="link-slug">/{link.slug}</span>
@@ -125,12 +133,33 @@
 		transition: background var(--transition-fast);
 	}
 	
+	.link-row:has(.link-checkbox) {
+		grid-template-columns: auto 1fr auto auto;
+	}
+	
 	.link-row:hover {
 		background: var(--bg-hover);
 	}
 	
+	.link-row.selected {
+		background: rgba(var(--accent-primary-rgb, 59, 130, 246), 0.05);
+	}
+	
 	.link-row:last-child {
 		border-bottom: none;
+	}
+	
+	.link-checkbox {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	.link-checkbox input {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--accent-primary);
+		cursor: pointer;
 	}
 	
 	.link-main {

@@ -126,3 +126,14 @@ export const stats = {
 	daily: (slug: string) => api.get<{ date: string; clicks: number }[]>(`/stats/${slug}/daily`),
 	referrers: (slug: string) => api.get<{ referrer: string; clicks: number }[]>(`/stats/${slug}/referrers`)
 };
+
+export interface LinkPreview {
+	title?: string;
+	description?: string;
+	image_url?: string;
+	fetched_at?: string;
+}
+
+export const preview = {
+	fetch: (url: string) => api.get<LinkPreview>(`/preview?url=${encodeURIComponent(url)}`)
+};

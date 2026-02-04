@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { StatCard, Card, LinkRow, Chart, Button, Input, Modal } from '$lib/components';
-	import { links, folders, type Link, type CreateLinkRequest } from '$lib/utils/api';
+	import { links, folders, type Link, type CreateLinkRequest, type Folder } from '$lib/utils/api';
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	
 	let linkList = $state<Link[]>([]);
+	let folderList = $state<Folder[]>([]);
 	let totalLinks = $state(0);
 	let totalClicks = $state(0);
 	let totalFolders = $state(0);
@@ -13,9 +14,15 @@
 	
 	let showCreateModal = $state(false);
 	let createLoading = $state(false);
-	let createError = $state('');
+	let urlError = $state('');
+	let slugError = $state('');
 	let newUrl = $state('');
 	let newSlug = $state('');
+	let newPassword = $state('');
+	let newTtl = $state('');
+	let newTags = $state('');
+	let newFolderId = $state('');
+	let isOneTime = $state(false);
 	
 	// Chart data (aggregated from all links' daily stats)
 	let chartData = $state<{label: string; value: number}[]>([]);
@@ -48,6 +55,7 @@
 			}
 			
 			if (foldersRes.success && foldersRes.data) {
+				folderList = foldersRes.data;
 				totalFolders = foldersRes.data.length;
 			}
 		} catch (e) {
@@ -100,33 +108,59 @@
 	}
 	
 	async function handleCreateLink() {
+		urlError = '';
+		slugError = '';
+		
 		if (!newUrl.trim()) {
-			createError = 'URL is required';
+			urlError = 'URL is required';
 			return;
 		}
 		
 		createLoading = true;
-		createError = '';
 		
 		try {
 			const req: CreateLinkRequest = { url: newUrl };
 			if (newSlug.trim()) req.slug = newSlug;
+			if (newPassword.trim()) req.password = newPassword;
+			if (newTtl && parseInt(newTtl) > 0) req.ttl_hours = parseInt(newTtl);
+			if (newTags.trim()) req.tags = newTags.split(',').map(t => t.trim()).filter(Boolean);
+			if (newFolderId) req.folder_id = parseInt(newFolderId);
+			if (isOneTime) req.is_one_time = true;
 			
 			const res = await links.create(req);
 			
 			if (res.success) {
+				resetCreateForm();
 				showCreateModal = false;
-				newUrl = '';
-				newSlug = '';
 				await loadData();
 			} else {
-				createError = res.error?.message || 'Failed to create link';
+				const field = res.error?.field;
+				const message = res.error?.message || 'Failed to create link';
+				if (field === 'slug') {
+					slugError = message;
+				} else if (field === 'url') {
+					urlError = message;
+				} else {
+					urlError = message;
+				}
 			}
 		} catch (e) {
-			createError = 'Failed to create link';
+			urlError = 'Failed to create link';
 		} finally {
 			createLoading = false;
 		}
+	}
+	
+	function resetCreateForm() {
+		newUrl = '';
+		newSlug = '';
+		newPassword = '';
+		newTtl = '';
+		newTags = '';
+		newFolderId = '';
+		isOneTime = false;
+		urlError = '';
+		slugError = '';
 	}
 	
 	async function handleDeleteLink(slug: string) {
@@ -204,7 +238,7 @@
 <Modal
 	open={showCreateModal}
 	title="Create Link"
-	onclose={() => { showCreateModal = false; createError = ''; }}
+	onclose={() => { showCreateModal = false; resetCreateForm(); }}
 >
 	<form class="create-form" onsubmit={(e) => { e.preventDefault(); handleCreateLink(); }}>
 		<Input
@@ -212,16 +246,48 @@
 			label="URL"
 			placeholder="https://example.com"
 			bind:value={newUrl}
-			error={createError}
+			error={urlError}
 		/>
 		<Input
 			type="text"
 			label="Custom Slug (optional)"
 			placeholder="my-link"
 			bind:value={newSlug}
+			error={slugError}
 		/>
+		<Input
+			type="password"
+			label="Password (optional)"
+			placeholder="Password protect this link"
+			bind:value={newPassword}
+		/>
+		<Input
+			type="number"
+			label="Expiry (hours, optional)"
+			placeholder="24"
+			bind:value={newTtl}
+		/>
+		<Input
+			type="text"
+			label="Tags (comma-separated)"
+			placeholder="project, docs"
+			bind:value={newTags}
+		/>
+		<div class="select-wrapper">
+			<label class="select-label">Folder (optional)</label>
+			<select class="select-input" bind:value={newFolderId}>
+				<option value="">No folder</option>
+				{#each folderList as folder}
+					<option value={String(folder.id)}>{folder.name}</option>
+				{/each}
+			</select>
+		</div>
+		<label class="checkbox-label">
+			<input type="checkbox" bind:checked={isOneTime} />
+			<span>One-time link (burns after first access)</span>
+		</label>
 		<div class="form-actions">
-			<Button variant="secondary" onclick={() => showCreateModal = false}>Cancel</Button>
+			<Button variant="secondary" onclick={() => { showCreateModal = false; resetCreateForm(); }}>Cancel</Button>
 			<Button type="submit" loading={createLoading}>Create</Button>
 		</div>
 	</form>
@@ -328,5 +394,61 @@
 		justify-content: flex-end;
 		gap: var(--space-3);
 		margin-top: var(--space-2);
+	}
+	
+	.select-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	
+	.select-label {
+		font-size: var(--text-sm);
+		font-weight: var(--font-medium);
+		color: var(--text-secondary);
+	}
+	
+	.select-input {
+		width: 100%;
+		height: 40px;
+		padding: 0 var(--space-3);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		background-color: var(--bg-secondary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 12px center;
+		padding-right: 36px;
+	}
+	
+	.select-input:hover {
+		border-color: var(--border-medium);
+		background-color: var(--bg-tertiary);
+	}
+	
+	.select-input:focus {
+		outline: none;
+		border-color: var(--accent-primary);
+	}
+	
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+	
+	.checkbox-label input {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--accent-primary);
 	}
 </style>

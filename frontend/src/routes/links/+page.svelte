@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Input, Card, LinkRow, Modal, QRModal } from '$lib/components';
+	import { Button, Input, Card, LinkRow, Modal, QRModal, LinkPreview } from '$lib/components';
 	import { links, folders, type Link, type CreateLinkRequest, type Folder } from '$lib/utils/api';
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
@@ -12,10 +12,17 @@
 	let search = $state('');
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	
+	// Bulk selection
+	let selectionMode = $state(false);
+	let selectedSlugs = $state<Set<string>>(new Set());
+	let selectedCount = $derived(selectedSlugs.size);
+	let bulkDeleteLoading = $state(false);
+	
 	// Create modal
 	let showCreateModal = $state(false);
 	let createLoading = $state(false);
-	let createError = $state('');
+	let urlError = $state('');
+	let slugError = $state('');
 	let newUrl = $state('');
 	let newSlug = $state('');
 	let newPassword = $state('');
@@ -44,6 +51,7 @@
 	let statsLoading = $state(false);
 	
 	let baseUrl = $derived(browser ? window.location.origin : '');
+	let allSelected = $derived(linkList.length > 0 && selectedSlugs.size === linkList.length);
 	
 	onMount(async () => {
 		if (!$auth.isAuthenticated) {
@@ -89,13 +97,15 @@
 	}
 	
 	async function handleCreateLink() {
+		urlError = '';
+		slugError = '';
+		
 		if (!newUrl.trim()) {
-			createError = 'URL is required';
+			urlError = 'URL is required';
 			return;
 		}
 		
 		createLoading = true;
-		createError = '';
 		
 		try {
 			const req: CreateLinkRequest = { url: newUrl };
@@ -113,10 +123,19 @@
 				showCreateModal = false;
 				await loadLinks();
 			} else {
-				createError = res.error?.message || 'Failed to create link';
+				// Route error to the correct field
+				const field = res.error?.field;
+				const message = res.error?.message || 'Failed to create link';
+				if (field === 'slug') {
+					slugError = message;
+				} else if (field === 'url') {
+					urlError = message;
+				} else {
+					urlError = message;
+				}
 			}
 		} catch (e) {
-			createError = 'Failed to create link';
+			urlError = 'Failed to create link';
 		} finally {
 			createLoading = false;
 		}
@@ -129,6 +148,8 @@
 		newTtl = '';
 		newTags = '';
 		newFolderId = '';
+		urlError = '';
+		slugError = '';
 		isOneTime = false;
 		createError = '';
 	}
@@ -140,9 +161,56 @@
 			const res = await links.delete(slug);
 			if (res.success) {
 				linkList = linkList.filter(l => l.slug !== slug);
+				selectedSlugs.delete(slug);
+				selectedSlugs = selectedSlugs;
 			}
 		} catch (e) {
 			console.error('Failed to delete link:', e);
+		}
+	}
+	
+	function toggleSelectionMode() {
+		selectionMode = !selectionMode;
+		if (!selectionMode) {
+			selectedSlugs = new Set();
+		}
+	}
+	
+	function toggleSelect(slug: string) {
+		const newSet = new Set(selectedSlugs);
+		if (newSet.has(slug)) {
+			newSet.delete(slug);
+		} else {
+			newSet.add(slug);
+		}
+		selectedSlugs = newSet;
+	}
+	
+	function toggleSelectAll() {
+		if (allSelected) {
+			selectedSlugs = new Set();
+		} else {
+			selectedSlugs = new Set(linkList.map(l => l.slug));
+		}
+	}
+	
+	async function handleBulkDelete() {
+		if (selectedSlugs.size === 0) return;
+		if (!confirm(`Delete ${selectedSlugs.size} selected links?`)) return;
+		
+		bulkDeleteLoading = true;
+		try {
+			const res = await links.bulkDelete(Array.from(selectedSlugs));
+			if (res.success && res.data) {
+				const deleted = new Set(res.data.deleted);
+				linkList = linkList.filter(l => !deleted.has(l.slug));
+				selectedSlugs = new Set();
+				selectionMode = false;
+			}
+		} catch (e) {
+			console.error('Failed to bulk delete:', e);
+		} finally {
+			bulkDeleteLoading = false;
 		}
 	}
 	
@@ -226,14 +294,50 @@
 			<h1 class="page-title">Links</h1>
 			<p class="page-subtitle">{linkList.length} total links</p>
 		</div>
-		<Button onclick={() => showCreateModal = true}>
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<line x1="12" y1="5" x2="12" y2="19"/>
-				<line x1="5" y1="12" x2="19" y2="12"/>
-			</svg>
-			New Link
-		</Button>
+		<div class="header-actions">
+			{#if linkList.length > 0 && !selectionMode}
+				<Button variant="secondary" onclick={toggleSelectionMode}>
+					Select
+				</Button>
+			{/if}
+			{#if !selectionMode}
+				<Button onclick={() => showCreateModal = true}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="12" y1="5" x2="12" y2="19"/>
+						<line x1="5" y1="12" x2="19" y2="12"/>
+					</svg>
+					New Link
+				</Button>
+			{/if}
+		</div>
 	</header>
+	
+	{#if selectionMode}
+		<div class="bulk-bar">
+			<label class="select-all-label">
+				<input type="checkbox" checked={allSelected} onchange={toggleSelectAll} />
+				<span>Select all ({selectedCount} selected)</span>
+			</label>
+			<div class="bulk-actions">
+				<Button 
+					variant="danger" 
+					size="sm" 
+					onclick={handleBulkDelete} 
+					loading={bulkDeleteLoading}
+					disabled={selectedCount === 0}
+				>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="3 6 5 6 21 6"/>
+						<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+					</svg>
+					Delete ({selectedCount})
+				</Button>
+				<Button variant="secondary" size="sm" onclick={toggleSelectionMode}>
+					Cancel
+				</Button>
+			</div>
+		</div>
+	{/if}
 	
 	<div class="search-bar">
 		<Input
@@ -260,10 +364,13 @@
 				{#each linkList as link (link.id)}
 					<LinkRow 
 						{link} 
-						ondelete={handleDeleteLink} 
-						onedit={handleEdit}
-						onqr={handleQR}
-						onstats={handleStats}
+						ondelete={selectionMode ? undefined : handleDeleteLink} 
+						onedit={selectionMode ? undefined : handleEdit}
+						onqr={selectionMode ? undefined : handleQR}
+						onstats={selectionMode ? undefined : handleStats}
+						selectable={selectionMode}
+						selected={selectedSlugs.has(link.slug)}
+						onselect={toggleSelect}
 					/>
 				{/each}
 			</div>
@@ -306,7 +413,7 @@
 			<select class="select-input" bind:value={editFolderId}>
 				<option value="">No folder</option>
 				{#each folderList as folder}
-					<option value={folder.id}>{folder.name}</option>
+					<option value={String(folder.id)}>{folder.name}</option>
 				{/each}
 			</select>
 		</div>
@@ -343,6 +450,12 @@
 					</div>
 				</div>
 			{/if}
+			{#if statsLink}
+				<div class="stats-preview">
+					<h4 class="stats-chart-title">Link Preview</h4>
+					<LinkPreview url={statsLink.original_url} />
+				</div>
+			{/if}
 		{:else}
 			<div class="stats-loading">No stats available</div>
 		{/if}
@@ -360,13 +473,14 @@
 			label="URL"
 			placeholder="https://example.com"
 			bind:value={newUrl}
-			error={createError}
+			error={urlError}
 		/>
 		<Input
 			type="text"
 			label="Custom Slug (optional)"
 			placeholder="my-link"
 			bind:value={newSlug}
+			error={slugError}
 		/>
 		<Input
 			type="password"
@@ -391,7 +505,7 @@
 			<select class="select-input" bind:value={newFolderId}>
 				<option value="">No folder</option>
 				{#each folderList as folder}
-					<option value={folder.id}>{folder.name}</option>
+					<option value={String(folder.id)}>{folder.name}</option>
 				{/each}
 			</select>
 		</div>
@@ -431,6 +545,42 @@
 		font-size: var(--text-base);
 		color: var(--text-tertiary);
 		margin-top: var(--space-1);
+	}
+	
+	.header-actions {
+		display: flex;
+		gap: var(--space-2);
+	}
+	
+	.bulk-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--space-3) var(--space-4);
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+	}
+	
+	.bulk-actions {
+		display: flex;
+		gap: var(--space-2);
+	}
+	
+	.select-all-label {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+	
+	.select-all-label input {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--accent-primary);
+		cursor: pointer;
 	}
 	
 	.search-bar {
@@ -633,5 +783,11 @@
 	.stats-bar-label {
 		font-size: var(--text-xs);
 		color: var(--text-muted);
+	}
+	
+	.stats-preview {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
 	}
 </style>
