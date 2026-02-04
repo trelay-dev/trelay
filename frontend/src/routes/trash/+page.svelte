@@ -32,9 +32,13 @@
 	}
 	
 	async function handleRestore(slug: string) {
-		const res = await links.restore(slug);
-		if (res.success) {
-			await loadDeletedLinks();
+		try {
+			const res = await links.restore(slug);
+			if (res.success) {
+				deletedLinks = deletedLinks.filter(l => l.slug !== slug);
+			}
+		} catch (e) {
+			console.error('Failed to restore link:', e);
 		}
 	}
 	

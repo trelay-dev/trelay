@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { Button, Input, Card, LinkRow, Modal, QRModal } from '$lib/components';
-	import { links, type Link, type CreateLinkRequest } from '$lib/utils/api';
+	import { links, folders, type Link, type CreateLinkRequest, type Folder } from '$lib/utils/api';
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	
 	let linkList = $state<Link[]>([]);
+	let folderList = $state<Folder[]>([]);
 	let loading = $state(true);
 	let search = $state('');
 	let searchTimeout: ReturnType<typeof setTimeout>;
@@ -20,6 +21,7 @@
 	let newPassword = $state('');
 	let newTtl = $state('');
 	let newTags = $state('');
+	let newFolderId = $state('');
 	let isOneTime = $state(false);
 	
 	// Edit modal
@@ -29,6 +31,7 @@
 	let editError = $state('');
 	let editUrl = $state('');
 	let editTags = $state('');
+	let editFolderId = $state('');
 	
 	// QR modal
 	let showQRModal = $state(false);
@@ -48,8 +51,19 @@
 			return;
 		}
 		
-		await loadLinks();
+		await Promise.all([loadLinks(), loadFolders()]);
 	});
+	
+	async function loadFolders() {
+		try {
+			const res = await folders.list();
+			if (res.success && res.data) {
+				folderList = res.data;
+			}
+		} catch (e) {
+			console.error('Failed to load folders:', e);
+		}
+	}
 	
 	// Reactive search with debounce
 	$effect(() => {
@@ -89,6 +103,7 @@
 			if (newPassword.trim()) req.password = newPassword;
 			if (newTtl && parseInt(newTtl) > 0) req.ttl_hours = parseInt(newTtl);
 			if (newTags.trim()) req.tags = newTags.split(',').map(t => t.trim()).filter(Boolean);
+			if (newFolderId) req.folder_id = parseInt(newFolderId);
 			if (isOneTime) req.is_one_time = true;
 			
 			const res = await links.create(req);
@@ -113,6 +128,7 @@
 		newPassword = '';
 		newTtl = '';
 		newTags = '';
+		newFolderId = '';
 		isOneTime = false;
 		createError = '';
 	}
@@ -135,6 +151,7 @@
 		editLink = link;
 		editUrl = link.original_url;
 		editTags = link.tags?.join(', ') || '';
+		editFolderId = link.folder_id ? String(link.folder_id) : '';
 		editError = '';
 		showEditModal = true;
 	}
@@ -150,6 +167,11 @@
 			if (editUrl !== editLink.original_url) req.url = editUrl;
 			if (editTags.trim()) {
 				req.tags = editTags.split(',').map(t => t.trim()).filter(Boolean);
+			}
+			const newFolderIdNum = editFolderId ? parseInt(editFolderId) : null;
+			const currentFolderId = editLink.folder_id || null;
+			if (newFolderIdNum !== currentFolderId) {
+				req.folder_id = newFolderIdNum as number | undefined;
 			}
 			
 			const res = await links.update(editLink.slug, req);
@@ -275,6 +297,15 @@
 			placeholder="project, docs"
 			bind:value={editTags}
 		/>
+		<div class="select-wrapper">
+			<label class="select-label">Folder</label>
+			<select class="select-input" bind:value={editFolderId}>
+				<option value="">No folder</option>
+				{#each folderList as folder}
+					<option value={folder.id}>{folder.name}</option>
+				{/each}
+			</select>
+		</div>
 		<div class="form-actions">
 			<Button variant="secondary" onclick={() => { showEditModal = false; editLink = null; }}>Cancel</Button>
 			<Button type="submit" loading={editLoading}>Save</Button>
@@ -351,6 +382,15 @@
 			placeholder="project, docs"
 			bind:value={newTags}
 		/>
+		<div class="select-wrapper">
+			<label class="select-label">Folder (optional)</label>
+			<select class="select-input" bind:value={newFolderId}>
+				<option value="">No folder</option>
+				{#each folderList as folder}
+					<option value={folder.id}>{folder.name}</option>
+				{/each}
+			</select>
+		</div>
 		<label class="checkbox-label">
 			<input type="checkbox" bind:checked={isOneTime} />
 			<span>One-time link (burns after first access)</span>
@@ -424,6 +464,39 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-4);
+	}
+	
+	.select-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	
+	.select-label {
+		font-size: var(--text-sm);
+		font-weight: var(--font-medium);
+		color: var(--text-secondary);
+	}
+	
+	.select-input {
+		width: 100%;
+		padding: var(--space-2) var(--space-3);
+		font-size: var(--text-base);
+		color: var(--text-primary);
+		background: var(--bg-primary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: border-color var(--transition-fast);
+	}
+	
+	.select-input:hover {
+		border-color: var(--border-medium);
+	}
+	
+	.select-input:focus {
+		outline: none;
+		border-color: var(--accent-primary);
 	}
 	
 	.checkbox-label {
