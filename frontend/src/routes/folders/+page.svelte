@@ -181,11 +181,20 @@
 	{:else if folderList.length === 0}
 		<Card>
 			<div class="empty-state">
-				<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-				</svg>
-				<p>No folders yet</p>
-				<Button variant="secondary" onclick={() => showCreateModal = true}>Create your first folder</Button>
+				<div class="empty-icon">
+					<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+						<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+					</svg>
+				</div>
+				<h3 class="empty-title">No folders yet</h3>
+				<p class="empty-description">Organize your links into folders for easy management</p>
+				<Button onclick={() => showCreateModal = true}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="12" y1="5" x2="12" y2="19"/>
+						<line x1="5" y1="12" x2="19" y2="12"/>
+					</svg>
+					Create Folder
+				</Button>
 			</div>
 		</Card>
 	{:else}

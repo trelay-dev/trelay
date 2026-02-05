@@ -307,6 +307,16 @@ func (r *LinkRepository) List(ctx context.Context, filter domain.ListLinksFilter
 		}
 	}
 
+	if filter.CreatedAfter != "" {
+		conditions = append(conditions, "created_at >= ?")
+		args = append(args, filter.CreatedAfter)
+	}
+
+	if filter.CreatedBefore != "" {
+		conditions = append(conditions, "created_at <= ?")
+		args = append(args, filter.CreatedBefore)
+	}
+
 	query := `
 		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
 		FROM links

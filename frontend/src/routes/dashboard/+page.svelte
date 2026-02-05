@@ -35,6 +35,27 @@
 		}
 		
 		await loadData();
+		
+		// Keyboard shortcuts
+		const handleKeydown = (e: KeyboardEvent) => {
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+				return;
+			}
+			
+			// Ctrl/Cmd + N: New link
+			if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+				e.preventDefault();
+				showCreateModal = true;
+			}
+			
+			// Escape: Close modal
+			if (e.key === 'Escape' && showCreateModal) {
+				showCreateModal = false;
+			}
+		};
+		
+		document.addEventListener('keydown', handleKeydown);
+		return () => document.removeEventListener('keydown', handleKeydown);
 	});
 	
 	async function loadData() {
@@ -223,13 +244,24 @@
 					<h2 class="card-title">Recent Links</h2>
 					<a href="/links" class="card-link">View all</a>
 				</div>
-				<div class="links-list">
-					{#each linkList as link (link.id)}
-						<LinkRow {link} ondelete={handleDeleteLink} />
-					{:else}
-						<div class="empty-state">No links yet. Create your first one!</div>
-					{/each}
-				</div>
+				{#if linkList.length > 0}
+					<div class="links-list">
+						{#each linkList as link (link.id)}
+							<LinkRow {link} ondelete={handleDeleteLink} />
+						{/each}
+					</div>
+				{:else}
+					<div class="empty-state">
+						<div class="empty-icon-sm">
+							<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+								<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+								<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+							</svg>
+						</div>
+						<p class="empty-text">No links yet</p>
+						<p class="empty-hint">Press <kbd>Ctrl</kbd>+<kbd>N</kbd> to create one</p>
+					</div>
+				{/if}
 			</Card>
 		</div>
 	{/if}
@@ -372,9 +404,46 @@
 	}
 	
 	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-3);
 		padding: var(--space-8);
 		text-align: center;
+	}
+	
+	.empty-icon-sm {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 56px;
+		height: 56px;
+		background: var(--bg-tertiary);
+		border-radius: 50%;
 		color: var(--text-muted);
+	}
+	
+	.empty-text {
+		font-size: var(--text-base);
+		font-weight: var(--font-medium);
+		color: var(--text-secondary);
+		margin: 0;
+	}
+	
+	.empty-hint {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		margin: 0;
+	}
+	
+	.empty-hint kbd {
+		display: inline-block;
+		padding: 2px 6px;
+		font-family: var(--font-mono, monospace);
+		font-size: var(--text-xs);
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-sm);
 	}
 	
 	.loading {

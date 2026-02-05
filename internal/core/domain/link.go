@@ -96,4 +96,6 @@ type ListLinksFilter struct {
 	Offset         int      `json:"offset,omitempty"`
 	IncludeDeleted bool     `json:"include_deleted,omitempty"`
 	OnlyDeleted    bool     `json:"only_deleted,omitempty"`
+	CreatedAfter   string   `json:"created_after,omitempty"`
+	CreatedBefore  string   `json:"created_before,omitempty"`
 }

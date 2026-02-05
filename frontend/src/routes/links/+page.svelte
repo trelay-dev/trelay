@@ -12,6 +12,11 @@
 	let search = $state('');
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	
+	// Date filter
+	let dateFrom = $state('');
+	let dateTo = $state('');
+	let showFilters = $state(false);
+	
 	// Bulk selection
 	let selectionMode = $state(false);
 	let selectedSlugs = $state<Set<string>>(new Set());
@@ -60,6 +65,44 @@
 		}
 		
 		await Promise.all([loadLinks(), loadFolders()]);
+		
+		// Keyboard shortcuts
+		const handleKeydown = (e: KeyboardEvent) => {
+			// Don't trigger if typing in an input
+			if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+				return;
+			}
+			
+			// Ctrl/Cmd + N: New link
+			if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+				e.preventDefault();
+				showCreateModal = true;
+			}
+			
+			// Escape: Close modals or exit selection mode
+			if (e.key === 'Escape') {
+				if (showCreateModal) showCreateModal = false;
+				else if (showEditModal) showEditModal = false;
+				else if (showQRModal) showQRModal = false;
+				else if (showStatsModal) showStatsModal = false;
+				else if (selectionMode) toggleSelectionMode();
+			}
+			
+			// /: Focus search
+			if (e.key === '/' && !showCreateModal && !showEditModal) {
+				e.preventDefault();
+				const searchInput = document.querySelector('.search-bar input') as HTMLInputElement;
+				searchInput?.focus();
+			}
+			
+			// s: Toggle selection mode
+			if (e.key === 's' && !showCreateModal && !showEditModal && linkList.length > 0) {
+				toggleSelectionMode();
+			}
+		};
+		
+		document.addEventListener('keydown', handleKeydown);
+		return () => document.removeEventListener('keydown', handleKeydown);
 	});
 	
 	async function loadFolders() {
@@ -85,7 +128,12 @@
 	async function loadLinks() {
 		loading = true;
 		try {
-			const res = await links.list({ search: search || undefined });
+			const params: Parameters<typeof links.list>[0] = {};
+			if (search) params.search = search;
+			if (dateFrom) params.created_after = dateFrom + 'T00:00:00Z';
+			if (dateTo) params.created_before = dateTo + 'T23:59:59Z';
+			
+			const res = await links.list(params);
 			if (res.success && res.data) {
 				linkList = res.data;
 			}
@@ -94,6 +142,13 @@
 		} finally {
 			loading = false;
 		}
+	}
+	
+	function clearFilters() {
+		dateFrom = '';
+		dateTo = '';
+		search = '';
+		loadLinks();
 	}
 	
 	async function handleCreateLink() {
@@ -339,12 +394,38 @@
 		</div>
 	{/if}
 	
-	<div class="search-bar">
-		<Input
-			type="search"
-			placeholder="Search links..."
-			bind:value={search}
-		/>
+	<div class="filters-section">
+		<div class="search-bar">
+			<Input
+				type="search"
+				placeholder="Search links..."
+				bind:value={search}
+			/>
+			<button class="filter-toggle" class:active={showFilters || dateFrom || dateTo} onclick={() => showFilters = !showFilters}>
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+				</svg>
+				{#if dateFrom || dateTo}
+					<span class="filter-badge">1</span>
+				{/if}
+			</button>
+		</div>
+		
+		{#if showFilters}
+			<div class="date-filters">
+				<div class="date-filter-group">
+					<label class="date-label">From</label>
+					<input type="date" class="date-input" bind:value={dateFrom} onchange={() => loadLinks()} />
+				</div>
+				<div class="date-filter-group">
+					<label class="date-label">To</label>
+					<input type="date" class="date-input" bind:value={dateTo} onchange={() => loadLinks()} />
+				</div>
+				{#if dateFrom || dateTo}
+					<Button variant="secondary" size="sm" onclick={clearFilters}>Clear</Button>
+				{/if}
+			</div>
+		{/if}
 	</div>
 	
 	<Card padding="none">
@@ -352,12 +433,28 @@
 			<div class="loading">Loading...</div>
 		{:else if linkList.length === 0}
 			<div class="empty-state">
-				<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-					<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-					<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-				</svg>
-				<p>No links found</p>
-				<Button variant="secondary" onclick={() => showCreateModal = true}>Create your first link</Button>
+				<div class="empty-icon">
+					<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+						<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+						<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+					</svg>
+				</div>
+				{#if search || dateFrom || dateTo}
+					<h3 class="empty-title">No matching links</h3>
+					<p class="empty-description">Try adjusting your search or filters</p>
+					<Button variant="secondary" onclick={clearFilters}>Clear filters</Button>
+				{:else}
+					<h3 class="empty-title">No links yet</h3>
+					<p class="empty-description">Create your first shortened link to get started</p>
+					<Button onclick={() => showCreateModal = true}>
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<line x1="12" y1="5" x2="12" y2="19"/>
+							<line x1="5" y1="12" x2="19" y2="12"/>
+						</svg>
+						Create Link
+					</Button>
+					<p class="empty-hint">or press <kbd>Ctrl</kbd> + <kbd>N</kbd></p>
+				{/if}
 			</div>
 		{:else}
 			<div class="links-list">
@@ -454,6 +551,27 @@
 				<div class="stats-preview">
 					<h4 class="stats-chart-title">Link Preview</h4>
 					<LinkPreview url={statsLink.original_url} />
+				</div>
+				<div class="stats-export">
+					<h4 class="stats-chart-title">Export</h4>
+					<div class="export-buttons">
+						<a href="/api/v1/stats/{statsLink.slug}?export=csv" download class="export-btn">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+								<polyline points="7 10 12 15 17 10"/>
+								<line x1="12" y1="15" x2="12" y2="3"/>
+							</svg>
+							CSV
+						</a>
+						<a href="/api/v1/stats/{statsLink.slug}?export=json" download class="export-btn">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+								<polyline points="7 10 12 15 17 10"/>
+								<line x1="12" y1="15" x2="12" y2="3"/>
+							</svg>
+							JSON
+						</a>
+					</div>
 				</div>
 			{/if}
 		{:else}
@@ -583,13 +701,107 @@
 		cursor: pointer;
 	}
 	
+	.filters-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	
 	.search-bar {
 		display: flex;
 		gap: var(--space-3);
+		align-items: center;
 	}
 	
 	.search-bar :global(.input-wrapper) {
 		flex: 1;
+	}
+	
+	.filter-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		width: 40px;
+		height: 40px;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		color: var(--text-tertiary);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+	
+	.filter-toggle:hover {
+		background: var(--bg-tertiary);
+		color: var(--text-primary);
+	}
+	
+	.filter-toggle.active {
+		background: var(--accent-primary);
+		border-color: var(--accent-primary);
+		color: white;
+	}
+	
+	.filter-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		font-size: 10px;
+		font-weight: var(--font-semibold);
+		line-height: 16px;
+		text-align: center;
+		background: var(--color-error);
+		color: white;
+		border-radius: 99px;
+	}
+	
+	.date-filters {
+		display: flex;
+		align-items: flex-end;
+		gap: var(--space-4);
+		padding: var(--space-3) var(--space-4);
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+	}
+	
+	.date-filter-group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	
+	.date-label {
+		font-size: var(--text-xs);
+		font-weight: var(--font-medium);
+		color: var(--text-tertiary);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	
+	.date-input {
+		height: 36px;
+		padding: 0 var(--space-3);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+	}
+	
+	.date-input:hover {
+		border-color: var(--border-medium);
+	}
+	
+	.date-input:focus {
+		outline: none;
+		border-color: var(--accent-primary);
 	}
 	
 	.links-list {
@@ -608,10 +820,51 @@
 		flex-direction: column;
 		align-items: center;
 		gap: var(--space-4);
+		padding: var(--space-16) var(--space-8);
 	}
 	
-	.empty-state svg {
+	.empty-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 96px;
+		height: 96px;
+		background: var(--bg-tertiary);
+		border-radius: 50%;
+		margin-bottom: var(--space-2);
+	}
+	
+	.empty-icon svg {
 		color: var(--text-muted);
+	}
+	
+	.empty-title {
+		font-size: var(--text-xl);
+		font-weight: var(--font-semibold);
+		color: var(--text-primary);
+		margin: 0;
+	}
+	
+	.empty-description {
+		font-size: var(--text-base);
+		color: var(--text-tertiary);
+		margin: 0;
+	}
+	
+	.empty-hint {
+		font-size: var(--text-sm);
+		color: var(--text-muted);
+		margin: 0;
+	}
+	
+	.empty-hint kbd {
+		display: inline-block;
+		padding: 2px 6px;
+		font-family: var(--font-mono, monospace);
+		font-size: var(--text-xs);
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-sm);
 	}
 	
 	.create-form {
@@ -789,5 +1042,37 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+	}
+	
+	.stats-export {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	
+	.export-buttons {
+		display: flex;
+		gap: var(--space-2);
+	}
+	
+	.export-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-4);
+		font-size: var(--text-sm);
+		font-weight: var(--font-medium);
+		color: var(--text-secondary);
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		transition: all var(--transition-fast);
+	}
+	
+	.export-btn:hover {
+		background: var(--bg-secondary);
+		color: var(--text-primary);
+		border-color: var(--border-medium);
 	}
 </style>

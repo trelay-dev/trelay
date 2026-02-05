@@ -95,12 +95,14 @@ export interface ClickStats {
 
 // API functions
 export const links = {
-	list: (params?: { search?: string; folder_id?: number; only_deleted?: boolean }) => {
+	list: (params?: { search?: string; folder_id?: number; only_deleted?: boolean; created_after?: string; created_before?: string }) => {
 		let path = '/links';
 		const query = new URLSearchParams();
 		if (params?.search) query.set('search', params.search);
 		if (params?.folder_id) query.set('folder_id', String(params.folder_id));
 		if (params?.only_deleted) query.set('only_deleted', 'true');
+		if (params?.created_after) query.set('created_after', params.created_after);
+		if (params?.created_before) query.set('created_before', params.created_before);
 		if (query.toString()) path += `?${query}`;
 		return api.get<Link[]>(path);
 	},
