@@ -337,6 +337,28 @@
 			statsLoading = false;
 		}
 	}
+	
+	async function exportStats(format: 'csv' | 'json') {
+		if (!statsLink) return;
+		
+		try {
+			const res = await fetch(`/api/v1/stats/${statsLink.slug}?export=${format}`, {
+				headers: { 'X-API-Key': localStorage.getItem('trelay-api-key') || '' }
+			});
+			
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${statsLink.slug}-stats.${format}`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (e) {
+			console.error('Failed to export stats:', e);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -555,22 +577,22 @@
 				<div class="stats-export">
 					<h4 class="stats-chart-title">Export</h4>
 					<div class="export-buttons">
-						<a href="/api/v1/stats/{statsLink.slug}?export=csv" download class="export-btn">
+						<button class="export-btn" onclick={() => exportStats('csv')}>
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
 								<polyline points="7 10 12 15 17 10"/>
 								<line x1="12" y1="15" x2="12" y2="3"/>
 							</svg>
 							CSV
-						</a>
-						<a href="/api/v1/stats/{statsLink.slug}?export=json" download class="export-btn">
+						</button>
+						<button class="export-btn" onclick={() => exportStats('json')}>
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
 								<polyline points="7 10 12 15 17 10"/>
 								<line x1="12" y1="15" x2="12" y2="3"/>
 							</svg>
 							JSON
-						</a>
+						</button>
 					</div>
 				</div>
 			{/if}
@@ -1066,7 +1088,7 @@
 		background: var(--bg-tertiary);
 		border: 1px solid var(--border-light);
 		border-radius: var(--radius-md);
-		text-decoration: none;
+		cursor: pointer;
 		transition: all var(--transition-fast);
 	}
 	
