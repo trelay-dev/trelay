@@ -7,13 +7,14 @@
 <p align="center">
   <img src="https://img.shields.io/github/go-mod/go-version/trelay-dev/trelay" alt="Go Version" />
   <img src="https://img.shields.io/github/license/trelay-dev/trelay" alt="License" />
-  <img src="https://img.shields.io/badge/status-active_development-orange" alt="Status" />
+  <img src="https://img.shields.io/badge/version-v1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/frontend-SvelteKit-ff3e00" alt="Frontend" />
   <img src="https://img.shields.io/badge/runtime-Bun-fbf0df" alt="Runtime" />
 </p>
 
 <p align="center">
-  A developer-first, privacy-respecting URL manager with a robust API and CLI.
+  A developer-first, privacy-respecting URL manager for self-hosting.<br/>
+  Modern web dashboard, powerful CLI, and automation-friendly API.
 </p>
 
 ## Features
