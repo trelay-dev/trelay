@@ -1,0 +1,712 @@
+openapi: 3.0.3
+info:
+  title: Trelay API
+  description: |
+    Trelay is a privacy-respecting, developer-first URL shortener.
+    
+    ## Authentication
+    All endpoints (except health checks and redirects) require authentication via one of:
+    - `X-API-Key` header with your API key
+    - `Authorization: Bearer <jwt_token>` header with a JWT token
+  version: 2.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Links
+    description: URL shortening and management
+  - name: Folders
+    description: Organize links into folders
+  - name: Stats
+    description: Click statistics and analytics
+  - name: Import/Export
+    description: Bulk operations
+  - name: Preview
+    description: Link metadata preview
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with API key
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [api_key]
+              properties:
+                api_key:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      expires_at:
+                        type: string
+
+  /api/v1/links:
+    get:
+      tags: [Links]
+      summary: List all links
+      operationId: listLinks
+      security:
+        - apiKey: []
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: folder_id
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Link'
+
+    post:
+      tags: [Links]
+      summary: Create a new short link
+      operationId: createLink
+      security:
+        - apiKey: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLinkRequest'
+      responses:
+        '201':
+          description: Link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Link'
+
+    delete:
+      tags: [Links]
+      summary: Bulk delete links
+      operationId: bulkDeleteLinks
+      security:
+        - apiKey: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slugs]
+              properties:
+                slugs:
+                  type: array
+                  items:
+                    type: string
+                permanent:
+                  type: boolean
+      responses:
+        '200':
+          description: Bulk delete result
+
+  /api/v1/links/{slug}:
+    get:
+      tags: [Links]
+      summary: Get link details
+      operationId: getLink
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Link details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Link'
+
+    patch:
+      tags: [Links]
+      summary: Update a link
+      operationId: updateLink
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLinkRequest'
+      responses:
+        '200':
+          description: Link updated
+
+    delete:
+      tags: [Links]
+      summary: Delete a link
+      operationId: deleteLink
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: permanent
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Link deleted
+
+  /api/v1/links/{slug}/restore:
+    post:
+      tags: [Links]
+      summary: Restore a soft-deleted link
+      operationId: restoreLink
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Link restored
+
+  /api/v1/folders:
+    get:
+      tags: [Folders]
+      summary: List all folders
+      operationId: listFolders
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: List of folders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Folder'
+
+    post:
+      tags: [Folders]
+      summary: Create a new folder
+      operationId: createFolder
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                parent_id:
+                  type: integer
+      responses:
+        '201':
+          description: Folder created
+
+  /api/v1/folders/{id}:
+    get:
+      tags: [Folders]
+      summary: Get folder details
+      operationId: getFolder
+      security:
+        - apiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Folder details
+
+    delete:
+      tags: [Folders]
+      summary: Delete a folder
+      operationId: deleteFolder
+      security:
+        - apiKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Folder deleted
+
+  /api/v1/stats/{slug}:
+    get:
+      tags: [Stats]
+      summary: Get click statistics
+      operationId: getStats
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Click statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ClickStats'
+
+  /api/v1/stats/{slug}/daily:
+    get:
+      tags: [Stats]
+      summary: Get daily click statistics
+      operationId: getDailyStats
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Daily statistics
+
+  /api/v1/stats/{slug}/referrers:
+    get:
+      tags: [Stats]
+      summary: Get top referrers
+      operationId: getReferrers
+      security:
+        - apiKey: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Top referrers
+
+  /api/v1/preview:
+    get:
+      tags: [Preview]
+      summary: Fetch URL metadata preview
+      operationId: fetchPreview
+      security:
+        - apiKey: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        '200':
+          description: URL metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/LinkPreview'
+
+  /api/v1/import:
+    post:
+      tags: [Import/Export]
+      summary: Import links from CSV file
+      operationId: importCSV
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                format:
+                  type: string
+                  enum: [generic, yourls, shlink, bitly]
+                skip_duplicates:
+                  type: string
+                  enum: ['true', 'false']
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ImportResult'
+
+  /api/v1/import/json:
+    post:
+      tags: [Import/Export]
+      summary: Import links from JSON
+      operationId: importJSON
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [links]
+              properties:
+                links:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ImportLink'
+                skip_duplicates:
+                  type: boolean
+      responses:
+        '200':
+          description: Import result
+
+  /api/v1/export:
+    get:
+      tags: [Import/Export]
+      summary: Export all links
+      operationId: exportLinks
+      security:
+        - apiKey: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, json]
+        - name: folder_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Export file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+
+  /{slug}:
+    get:
+      tags: [Links]
+      summary: Redirect to original URL
+      operationId: redirect
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: password
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to original URL
+        '404':
+          description: Link not found
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Link:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        original_url:
+          type: string
+        domain:
+          type: string
+        has_password:
+          type: boolean
+        is_one_time:
+          type: boolean
+        expires_at:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        folder_id:
+          type: integer
+        click_count:
+          type: integer
+        created_at:
+          type: string
+        updated_at:
+          type: string
+
+    CreateLinkRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        slug:
+          type: string
+        domain:
+          type: string
+        password:
+          type: string
+        ttl_hours:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        folder_id:
+          type: integer
+        is_one_time:
+          type: boolean
+
+    UpdateLinkRequest:
+      type: object
+      properties:
+        url:
+          type: string
+        password:
+          type: string
+        ttl_hours:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        folder_id:
+          type: integer
+
+    Folder:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        parent_id:
+          type: integer
+        created_at:
+          type: string
+
+    ClickStats:
+      type: object
+      properties:
+        total_clicks:
+          type: integer
+        clicks_by_day:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              clicks:
+                type: integer
+        top_referrers:
+          type: array
+          items:
+            type: object
+            properties:
+              referrer:
+                type: string
+              clicks:
+                type: integer
+
+    LinkPreview:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+        fetched_at:
+          type: string
+
+    ImportLink:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+        slug:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        password:
+          type: string
+        ttl_hours:
+          type: integer
+        folder_id:
+          type: integer
+
+    ImportResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              url:
+                type: string
+              slug:
+                type: string
+              message:
+                type: string

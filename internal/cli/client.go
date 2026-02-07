@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -259,4 +261,134 @@ func (c *Client) ListFolders() ([]Folder, error) {
 
 func (c *Client) DeleteFolder(id int64) error {
 	return c.do("DELETE", fmt.Sprintf("/api/v1/folders/%d", id), nil, nil)
+}
+
+type ImportResult struct {
+	Total    int           `json:"total"`
+	Imported int           `json:"imported"`
+	Skipped  int           `json:"skipped"`
+	Failed   int           `json:"failed"`
+	Errors   []ImportError `json:"errors,omitempty"`
+}
+
+type ImportError struct {
+	Row     int    `json:"row"`
+	URL     string `json:"url,omitempty"`
+	Slug    string `json:"slug,omitempty"`
+	Message string `json:"message"`
+}
+
+type ImportLink struct {
+	URL      string   `json:"url"`
+	Slug     string   `json:"slug,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
+	Password string   `json:"password,omitempty"`
+	TTLHours int      `json:"ttl_hours,omitempty"`
+	FolderID *int64   `json:"folder_id,omitempty"`
+}
+
+type ImportJSONRequest struct {
+	Links          []ImportLink `json:"links"`
+	SkipDuplicates bool         `json:"skip_duplicates"`
+}
+
+func (c *Client) ImportJSON(links []ImportLink, skipDuplicates bool) (*ImportResult, error) {
+	req := ImportJSONRequest{
+		Links:          links,
+		SkipDuplicates: skipDuplicates,
+	}
+	var result ImportResult
+	if err := c.do("POST", "/api/v1/import/json", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) ImportCSV(filePath, format string, skipDuplicates bool) (*ImportResult, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("file", filePath)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return nil, err
+	}
+
+	writer.WriteField("format", format)
+	skipDupStr := "false"
+	if skipDuplicates {
+		skipDupStr = "true"
+	}
+	writer.WriteField("skip_duplicates", skipDupStr)
+	writer.Close()
+
+	fullURL := c.baseURL + "/api/v1/import"
+	req, err := http.NewRequest("POST", fullURL, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("X-API-Key", c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiResp APIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return nil, err
+	}
+
+	if !apiResp.Success {
+		if apiResp.Error != nil {
+			return nil, fmt.Errorf("%s: %s", apiResp.Error.Code, apiResp.Error.Message)
+		}
+		return nil, fmt.Errorf("import failed")
+	}
+
+	var result ImportResult
+	if err := json.Unmarshal(apiResp.Data, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) Export(format string, folderID *int64) ([]byte, error) {
+	path := "/api/v1/export?format=" + format
+	if folderID != nil {
+		path += fmt.Sprintf("&folder_id=%d", *folderID)
+	}
+
+	fullURL := c.baseURL + path
+	req, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-API-Key", c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
 }

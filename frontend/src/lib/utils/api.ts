@@ -139,3 +139,54 @@ export interface LinkPreview {
 export const preview = {
 	fetch: (url: string) => api.get<LinkPreview>(`/preview?url=${encodeURIComponent(url)}`)
 };
+
+export interface ImportResult {
+	total: number;
+	imported: number;
+	skipped: number;
+	failed: number;
+	errors?: { row: number; url?: string; slug?: string; message: string }[];
+}
+
+export interface ImportLink {
+	url: string;
+	slug?: string;
+	tags?: string[];
+}
+
+export const importLinks = {
+	csv: async (file: File, format: string = 'generic', skipDuplicates: boolean = true) => {
+		const apiKey = getApiKey();
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('format', format);
+		formData.append('skip_duplicates', skipDuplicates ? 'true' : 'false');
+
+		const res = await fetch(`${API_BASE}/import`, {
+			method: 'POST',
+			headers: apiKey ? { 'X-API-Key': apiKey } : {},
+			body: formData
+		});
+
+		return res.json() as Promise<ApiResponse<ImportResult>>;
+	},
+	json: (links: ImportLink[], skipDuplicates: boolean = true) =>
+		api.post<ImportResult>('/import/json', { links, skip_duplicates: skipDuplicates })
+};
+
+export const exportLinks = {
+	csv: async () => {
+		const apiKey = getApiKey();
+		const res = await fetch(`${API_BASE}/export?format=csv`, {
+			headers: apiKey ? { 'X-API-Key': apiKey } : {}
+		});
+		return res.blob();
+	},
+	json: async () => {
+		const apiKey = getApiKey();
+		const res = await fetch(`${API_BASE}/export?format=json`, {
+			headers: apiKey ? { 'X-API-Key': apiKey } : {}
+		});
+		return res.blob();
+	}
+};

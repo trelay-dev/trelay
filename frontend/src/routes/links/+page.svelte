@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Input, Card, LinkRow, Modal, QRModal, LinkPreview } from '$lib/components';
-	import { links, folders, type Link, type CreateLinkRequest, type Folder } from '$lib/utils/api';
+	import { links, folders, importLinks, exportLinks, type Link, type CreateLinkRequest, type Folder, type ImportResult } from '$lib/utils/api';
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -54,6 +54,15 @@
 	let statsLink = $state<Link | null>(null);
 	let statsData = $state<{ total_clicks: number; clicks_by_day?: { date: string; clicks: number }[] } | null>(null);
 	let statsLoading = $state(false);
+	
+	// Import modal
+	let showImportModal = $state(false);
+	let importFile = $state<File | null>(null);
+	let importFormat = $state('generic');
+	let importSkipDuplicates = $state(true);
+	let importLoading = $state(false);
+	let importResult = $state<ImportResult | null>(null);
+	let importError = $state('');
 	
 	let baseUrl = $derived(browser ? window.location.origin : '');
 	let allSelected = $derived(linkList.length > 0 && selectedSlugs.size === linkList.length);
@@ -359,6 +368,68 @@
 			console.error('Failed to export stats:', e);
 		}
 	}
+	
+	function handleFileSelect(event: Event) {
+		const input = event.target as HTMLInputElement;
+		if (input.files && input.files[0]) {
+			importFile = input.files[0];
+			importResult = null;
+			importError = '';
+		}
+	}
+	
+	async function handleImport() {
+		if (!importFile) {
+			importError = 'Please select a file';
+			return;
+		}
+		
+		importLoading = true;
+		importError = '';
+		importResult = null;
+		
+		try {
+			const res = await importLinks.csv(importFile, importFormat, importSkipDuplicates);
+			if (res.success && res.data) {
+				importResult = res.data;
+				if (res.data.imported > 0) {
+					await loadLinks();
+				}
+			} else {
+				importError = res.error?.message || 'Import failed';
+			}
+		} catch (e) {
+			importError = 'Import failed';
+		} finally {
+			importLoading = false;
+		}
+	}
+
+	function resetImportForm() {
+		importFile = null;
+		importFormat = 'generic';
+		importSkipDuplicates = true;
+		importResult = null;
+		importError = '';
+		const fileInput = document.getElementById('import-file') as HTMLInputElement;
+		if (fileInput) fileInput.value = '';
+	}
+	
+	async function handleExport(format: 'csv' | 'json') {
+		try {
+			const blob = format === 'csv' ? await exportLinks.csv() : await exportLinks.json();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `trelay-links.${format}`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (e) {
+			console.error('Failed to export:', e);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -378,6 +449,14 @@
 				</Button>
 			{/if}
 			{#if !selectionMode}
+				<Button variant="secondary" onclick={() => showImportModal = true}>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+						<polyline points="17 8 12 3 7 8"/>
+						<line x1="12" y1="3" x2="12" y2="15"/>
+					</svg>
+					Import
+				</Button>
 				<Button onclick={() => showCreateModal = true}>
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<line x1="12" y1="5" x2="12" y2="19"/>
@@ -599,6 +678,90 @@
 		{:else}
 			<div class="stats-loading">No stats available</div>
 		{/if}
+	</div>
+</Modal>
+
+<Modal
+	open={showImportModal}
+	title="Import Links"
+	onclose={() => { showImportModal = false; resetImportForm(); }}
+>
+	<div class="import-content">
+		<div class="import-dropzone">
+			<input
+				type="file"
+				id="import-file"
+				accept=".csv,.json"
+				onchange={handleFileSelect}
+			/>
+			<label for="import-file" class="dropzone-label">
+				<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+					<polyline points="17 8 12 3 7 8"/>
+					<line x1="12" y1="3" x2="12" y2="15"/>
+				</svg>
+				{#if importFile}
+					<span class="dropzone-file">{importFile.name}</span>
+				{:else}
+					<span>Click to select CSV file</span>
+				{/if}
+			</label>
+		</div>
+		
+		<div class="select-wrapper">
+			<label class="select-label">CSV Format</label>
+			<select class="select-input" bind:value={importFormat}>
+				<option value="generic">Generic (url, slug, tags)</option>
+				<option value="yourls">YOURLS</option>
+				<option value="shlink">Shlink</option>
+				<option value="bitly">Bitly</option>
+			</select>
+		</div>
+		
+		<label class="checkbox-label">
+			<input type="checkbox" bind:checked={importSkipDuplicates} />
+			<span>Skip duplicate slugs</span>
+		</label>
+		
+		{#if importError}
+			<div class="import-error">{importError}</div>
+		{/if}
+		
+		{#if importResult}
+			<div class="import-result">
+				<div class="import-result-row">
+					<span>Total:</span>
+					<span>{importResult.total}</span>
+				</div>
+				<div class="import-result-row success">
+					<span>Imported:</span>
+					<span>{importResult.imported}</span>
+				</div>
+				{#if importResult.skipped > 0}
+					<div class="import-result-row">
+						<span>Skipped:</span>
+						<span>{importResult.skipped}</span>
+					</div>
+				{/if}
+				{#if importResult.failed > 0}
+					<div class="import-result-row failed">
+						<span>Failed:</span>
+						<span>{importResult.failed}</span>
+					</div>
+				{/if}
+			</div>
+		{/if}
+		
+		<div class="form-actions">
+			<Button variant="secondary" onclick={() => { showImportModal = false; resetImportForm(); }}>
+				{importResult ? 'Close' : 'Cancel'}
+			</Button>
+			{#if !importResult}
+				<Button onclick={handleImport} loading={importLoading} disabled={!importFile}>
+					Import
+				</Button>
+			{/if}
+		</div>
 	</div>
 </Modal>
 
@@ -1097,4 +1260,157 @@
 		color: var(--text-primary);
 		border-color: var(--border-medium);
 	}
+	
+	.import-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	
+	.import-dropzone {
+		position: relative;
+	}
+	
+	.import-dropzone input[type="file"] {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		cursor: pointer;
+	}
+	
+	.dropzone-label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-3);
+		padding: var(--space-8);
+		border: 2px dashed var(--border-medium);
+		border-radius: var(--radius-lg);
+		background: var(--bg-tertiary);
+		color: var(--text-tertiary);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+	
+	.dropzone-label:hover {
+		border-color: var(--accent-primary);
+		background: var(--bg-secondary);
+	}
+	
+	.dropzone-file {
+		font-weight: var(--font-medium);
+		color: var(--text-primary);
+	}
+	
+	.import-error {
+		padding: var(--space-3);
+		background: rgba(220, 38, 38, 0.1);
+		border: 1px solid rgba(220, 38, 38, 0.3);
+		border-radius: var(--radius-md);
+		color: rgb(220, 38, 38);
+		font-size: var(--text-sm);
+	}
+	
+	.import-result {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--bg-tertiary);
+		border-radius: var(--radius-md);
+	}
+	
+	.import-result-row {
+		display: flex;
+		justify-content: space-between;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+	}
+	
+	.import-result-row.success {
+		color: rgb(34, 197, 94);
+		font-weight: var(--font-medium);
+	}
+	
+	.import-result-row.failed {
+		color: rgb(220, 38, 38);
+	}
+
+	.import-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	
+	.import-dropzone {
+		position: relative;
+	}
+	
+	.import-dropzone input[type="file"] {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		cursor: pointer;
+	}
+	
+	.dropzone-label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-3);
+		padding: var(--space-8);
+		border: 2px dashed var(--border-medium);
+		border-radius: var(--radius-lg);
+		background: var(--bg-tertiary);
+		color: var(--text-tertiary);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+	
+	.dropzone-label:hover {
+		border-color: var(--accent-primary);
+		background: var(--bg-secondary);
+	}
+	
+	.dropzone-file {
+		font-weight: var(--font-medium);
+		color: var(--text-primary);
+	}
+	
+	.import-error {
+		padding: var(--space-3);
+		background: rgba(220, 38, 38, 0.1);
+		border: 1px solid rgba(220, 38, 38, 0.3);
+		border-radius: var(--radius-md);
+		color: rgb(220, 38, 38);
+		font-size: var(--text-sm);
+	}
+	
+	.import-result {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--bg-tertiary);
+		border-radius: var(--radius-md);
+	}
+	
+	.import-result-row {
+		display: flex;
+		justify-content: space-between;
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+	}
+	
+	.import-result-row.success {
+		color: rgb(34, 197, 94);
+		font-weight: var(--font-medium);
+	}
+	
+	.import-result-row.failed {
+		color: rgb(220, 38, 38);
+	}
 </style>
+

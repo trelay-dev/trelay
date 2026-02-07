@@ -254,6 +254,10 @@ func Success(message string) {
 	fmt.Printf("✓ %s\n", message)
 }
 
+func Warning(message string) {
+	fmt.Printf("⚠ %s\n", message)
+}
+
 func Error(message string) {
 	fmt.Fprintf(os.Stderr, "✗ %s\n", message)
 }

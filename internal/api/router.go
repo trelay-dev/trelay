@@ -62,6 +62,7 @@ func NewRouter(
 	statsHandler := handler.NewStatsHandler(linkService, analyticsService)
 	previewHandler := handler.NewPreviewHandler(previewService)
 	folderHandler := handler.NewFolderHandler(folderService)
+	importHandler := handler.NewImportHandler(linkService)
 	redirectHandler := handler.NewRedirectHandler(linkService, analyticsService)
 
 	r.Get("/healthz", healthHandler.Health)
@@ -94,6 +95,10 @@ func NewRouter(
 			r.Get("/folders", folderHandler.List)
 			r.Get("/folders/{id}", folderHandler.Get)
 			r.Delete("/folders/{id}", folderHandler.Delete)
+
+			r.Post("/import", importHandler.Import)
+			r.Post("/import/json", importHandler.ImportJSON)
+			r.Get("/export", importHandler.Export)
 		})
 	})
 
