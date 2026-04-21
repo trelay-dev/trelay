@@ -1,6 +1,6 @@
 # Roadmap
 
-Rough plan for what might land after the current **v2.x** line. Nothing here is a promise or a deadline; it is a backlog we use to stay aligned.
+Rough plan for what might land next. Nothing here is a promise or a deadline; it is a backlog we use to stay aligned.
 
 ## 1. User experience and dashboard
 

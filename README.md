@@ -17,10 +17,6 @@
   Modern web dashboard, powerful CLI, and automation-friendly API.
 </p>
 
-<p align="center">
-  <sub>Published open source releases are <strong>v2.0+</strong>. There is no public v1; numbering starts here.</sub>
-</p>
-
 ## Features
 
 - URL shortening with custom slugs, expiration, and password protection
@@ -139,7 +135,7 @@ Authentication: Include `X-API-Key` header with your API key.
 
 ## Roadmap
 
-Planned features and improvements for releases after **v2.0** are tracked in [`ROADMAP.md`](ROADMAP.md) (UX, analytics, core features, security, and platform work).
+Planned features and ideas are tracked in [`ROADMAP.md`](ROADMAP.md) (UX, analytics, core features, security, and platform work).
 
 ## Contributing
 
