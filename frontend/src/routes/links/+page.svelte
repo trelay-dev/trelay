@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Input, Card, LinkRow, Modal, QRModal, LinkPreview } from '$lib/components';
+	import { Button, Input, Card, LinkRow, Modal, QRModal, LinkPreview, Chart } from '$lib/components';
 	import { links, folders, importLinks, exportLinks, type Link, type CreateLinkRequest, type Folder, type ImportResult } from '$lib/utils/api';
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
@@ -16,12 +16,22 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let showFilters = $state(false);
+	let filterDomain = $state('');
+	let filterTags = $state('');
+	let filterExpiryMode = $state<'any' | 'yes' | 'no'>('any');
+	let filterExpiringSoon = $state(false);
 	
 	// Bulk selection
 	let selectionMode = $state(false);
 	let selectedSlugs = $state<Set<string>>(new Set());
 	let selectedCount = $derived(selectedSlugs.size);
 	let bulkDeleteLoading = $state(false);
+	let bulkOpsLoading = $state(false);
+	let showBulkMoveModal = $state(false);
+	let showBulkTagsModal = $state(false);
+	let bulkFolderPick = $state('');
+	let bulkTagsInput = $state('');
+	let bulkAppendTags = $state(false);
 	
 	// Create modal
 	let showCreateModal = $state(false);
@@ -35,6 +45,9 @@
 	let newTags = $state('');
 	let newFolderId = $state('');
 	let isOneTime = $state(false);
+	let newOgTitle = $state('');
+	let newOgDescription = $state('');
+	let newOgImageUrl = $state('');
 	
 	// Edit modal
 	let showEditModal = $state(false);
@@ -44,6 +57,9 @@
 	let editUrl = $state('');
 	let editTags = $state('');
 	let editFolderId = $state('');
+	let editOgTitle = $state('');
+	let editOgDescription = $state('');
+	let editOgImageUrl = $state('');
 	
 	// QR modal
 	let showQRModal = $state(false);
@@ -66,6 +82,9 @@
 	
 	let baseUrl = $derived(browser ? window.location.origin : '');
 	let allSelected = $derived(linkList.length > 0 && selectedSlugs.size === linkList.length);
+	let activeExtraFilters = $derived(
+		!!(filterDomain.trim() || filterTags.trim() || filterExpiryMode !== 'any' || filterExpiringSoon)
+	);
 	
 	onMount(async () => {
 		if (!$auth.isAuthenticated) {
@@ -94,6 +113,8 @@
 				else if (showEditModal) showEditModal = false;
 				else if (showQRModal) showQRModal = false;
 				else if (showStatsModal) showStatsModal = false;
+				else if (showBulkMoveModal) showBulkMoveModal = false;
+				else if (showBulkTagsModal) showBulkTagsModal = false;
 				else if (selectionMode) toggleSelectionMode();
 			}
 			
@@ -107,6 +128,18 @@
 			// s: Toggle selection mode
 			if (e.key === 's' && !showCreateModal && !showEditModal && linkList.length > 0) {
 				toggleSelectionMode();
+			}
+
+			// m: Bulk move (selection mode)
+			if (e.key === 'm' && selectionMode && selectedCount > 0 && !showCreateModal && !showEditModal) {
+				e.preventDefault();
+				showBulkMoveModal = true;
+			}
+
+			// t: Bulk tags (selection mode)
+			if (e.key === 't' && selectionMode && selectedCount > 0 && !showCreateModal && !showEditModal) {
+				e.preventDefault();
+				showBulkTagsModal = true;
 			}
 		};
 		
@@ -125,9 +158,15 @@
 		}
 	}
 	
-	// Reactive search with debounce
+	// Reactive search and filters with debounce
 	$effect(() => {
-		const term = search;
+		search;
+		dateFrom;
+		dateTo;
+		filterDomain;
+		filterTags;
+		filterExpiryMode;
+		filterExpiringSoon;
 		clearTimeout(searchTimeout);
 		searchTimeout = setTimeout(() => {
 			loadLinks();
@@ -141,6 +180,18 @@
 			if (search) params.search = search;
 			if (dateFrom) params.created_after = dateFrom + 'T00:00:00Z';
 			if (dateTo) params.created_before = dateTo + 'T23:59:59Z';
+			if (filterDomain.trim()) params.domain = filterDomain.trim();
+			const tagParts = filterTags.split(',').map((t) => t.trim()).filter(Boolean);
+			if (tagParts.length) params.tags = tagParts;
+			if (filterExpiryMode === 'yes') params.has_expiry = true;
+			if (filterExpiryMode === 'no') params.has_expiry = false;
+			if (filterExpiringSoon) {
+				params.has_expiry = true;
+				params.expires_after = new Date().toISOString();
+				const until = new Date();
+				until.setDate(until.getDate() + 7);
+				params.expires_before = until.toISOString();
+			}
 			
 			const res = await links.list(params);
 			if (res.success && res.data) {
@@ -157,6 +208,10 @@
 		dateFrom = '';
 		dateTo = '';
 		search = '';
+		filterDomain = '';
+		filterTags = '';
+		filterExpiryMode = 'any';
+		filterExpiringSoon = false;
 		loadLinks();
 	}
 	
@@ -179,6 +234,9 @@
 			if (newTags.trim()) req.tags = newTags.split(',').map(t => t.trim()).filter(Boolean);
 			if (newFolderId) req.folder_id = parseInt(newFolderId);
 			if (isOneTime) req.is_one_time = true;
+			if (newOgTitle.trim()) req.og_title = newOgTitle.trim();
+			if (newOgDescription.trim()) req.og_description = newOgDescription.trim();
+			if (newOgImageUrl.trim()) req.og_image_url = newOgImageUrl.trim();
 			
 			const res = await links.create(req);
 			
@@ -215,7 +273,9 @@
 		urlError = '';
 		slugError = '';
 		isOneTime = false;
-		createError = '';
+		newOgTitle = '';
+		newOgDescription = '';
+		newOgImageUrl = '';
 	}
 	
 	async function handleDeleteLink(slug: string) {
@@ -277,6 +337,59 @@
 			bulkDeleteLoading = false;
 		}
 	}
+
+	async function submitBulkMove() {
+		if (selectedSlugs.size === 0) return;
+		bulkOpsLoading = true;
+		try {
+			const body: Parameters<typeof links.bulkUpdate>[0] = {
+				slugs: Array.from(selectedSlugs)
+			};
+			if (bulkFolderPick === '') {
+				body.remove_folder = true;
+			} else {
+				body.folder_id = parseInt(bulkFolderPick, 10);
+			}
+			const res = await links.bulkUpdate(body);
+			if (res.success) {
+				showBulkMoveModal = false;
+				bulkFolderPick = '';
+				selectedSlugs = new Set();
+				selectionMode = false;
+				await loadLinks();
+			}
+		} catch (e) {
+			console.error('Failed to bulk move:', e);
+		} finally {
+			bulkOpsLoading = false;
+		}
+	}
+
+	async function submitBulkTags() {
+		if (selectedSlugs.size === 0) return;
+		const tags = bulkTagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+		if (tags.length === 0) return;
+		bulkOpsLoading = true;
+		try {
+			const res = await links.bulkUpdate({
+				slugs: Array.from(selectedSlugs),
+				tags,
+				append_tags: bulkAppendTags
+			});
+			if (res.success) {
+				showBulkTagsModal = false;
+				bulkTagsInput = '';
+				bulkAppendTags = false;
+				selectedSlugs = new Set();
+				selectionMode = false;
+				await loadLinks();
+			}
+		} catch (e) {
+			console.error('Failed to bulk tag:', e);
+		} finally {
+			bulkOpsLoading = false;
+		}
+	}
 	
 	function handleQR(link: Link) {
 		qrSlug = link.slug;
@@ -288,6 +401,9 @@
 		editUrl = link.original_url;
 		editTags = link.tags?.join(', ') || '';
 		editFolderId = link.folder_id ? String(link.folder_id) : '';
+		editOgTitle = link.og_title || '';
+		editOgDescription = link.og_description || '';
+		editOgImageUrl = link.og_image_url || '';
 		editError = '';
 		showEditModal = true;
 	}
@@ -309,6 +425,10 @@
 			if (newFolderIdNum !== currentFolderId) {
 				req.folder_id = newFolderIdNum as number | undefined;
 			}
+
+			if (editOgTitle !== (editLink.og_title || '')) req.og_title = editOgTitle;
+			if (editOgDescription !== (editLink.og_description || '')) req.og_description = editOgDescription;
+			if (editOgImageUrl !== (editLink.og_image_url || '')) req.og_image_url = editOgImageUrl;
 			
 			const res = await links.update(editLink.slug, req);
 			
@@ -345,6 +465,20 @@
 		} finally {
 			statsLoading = false;
 		}
+	}
+
+	const weekdayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+	function chartPointsFromClicksByDay(
+		days: { date: string; clicks: number }[] | undefined
+	): { label: string; value: number }[] {
+		if (!days?.length) return [];
+		// Chronological order (oldest → left) to match the dashboard chart; API/data may be any order.
+		const last7 = [...days].sort((a, b) => a.date.localeCompare(b.date)).slice(-7);
+		return last7.map((d) => ({
+			label: weekdayShort[new Date(d.date + 'T12:00:00').getDay()],
+			value: d.clicks,
+		}));
 	}
 	
 	async function exportStats(format: 'csv' | 'json') {
@@ -475,6 +609,22 @@
 				<span>Select all ({selectedCount} selected)</span>
 			</label>
 			<div class="bulk-actions">
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => { bulkFolderPick = ''; showBulkMoveModal = true; }}
+					disabled={selectedCount === 0}
+				>
+					Move
+				</Button>
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => { bulkTagsInput = ''; showBulkTagsModal = true; }}
+					disabled={selectedCount === 0}
+				>
+					Tags
+				</Button>
 				<Button 
 					variant="danger" 
 					size="sm" 
@@ -492,6 +642,7 @@
 					Cancel
 				</Button>
 			</div>
+			<p class="bulk-hint"><kbd>m</kbd> move · <kbd>t</kbd> tags</p>
 		</div>
 	{/if}
 	
@@ -502,18 +653,18 @@
 				placeholder="Search links..."
 				bind:value={search}
 			/>
-			<button class="filter-toggle" class:active={showFilters || dateFrom || dateTo} onclick={() => showFilters = !showFilters}>
+			<button class="filter-toggle" class:active={showFilters || dateFrom || dateTo || activeExtraFilters} onclick={() => showFilters = !showFilters}>
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
 				</svg>
-				{#if dateFrom || dateTo}
-					<span class="filter-badge">1</span>
+				{#if dateFrom || dateTo || activeExtraFilters}
+					<span class="filter-badge">!</span>
 				{/if}
 			</button>
 		</div>
 		
 		{#if showFilters}
-			<div class="date-filters">
+			<div class="date-filters filter-panel">
 				<div class="date-filter-group">
 					<label class="date-label">From</label>
 					<input type="date" class="date-input" bind:value={dateFrom} onchange={() => loadLinks()} />
@@ -522,8 +673,34 @@
 					<label class="date-label">To</label>
 					<input type="date" class="date-input" bind:value={dateTo} onchange={() => loadLinks()} />
 				</div>
-				{#if dateFrom || dateTo}
-					<Button variant="secondary" size="sm" onclick={clearFilters}>Clear</Button>
+				<div class="date-filter-group wide">
+					<label class="date-label">Domain</label>
+					<input type="text" class="text-filter-input" placeholder="example.com" bind:value={filterDomain} />
+				</div>
+				<div class="date-filter-group wide">
+					<label class="date-label">Tags</label>
+					<input type="text" class="text-filter-input" placeholder="tag1, tag2" bind:value={filterTags} />
+				</div>
+				<div class="date-filter-group">
+					<label class="date-label">Expiry</label>
+					<select class="select-input filter-select" bind:value={filterExpiryMode}>
+						<option value="any">Any</option>
+						<option value="yes">Has expiry</option>
+						<option value="no">No expiry</option>
+					</select>
+				</div>
+				<div class="date-filter-group">
+					<label class="date-label">Due soon</label>
+					<label class="filter-check-field">
+						<input type="checkbox" bind:checked={filterExpiringSoon} />
+						<span>Expiring in 7 days</span>
+					</label>
+				</div>
+				{#if dateFrom || dateTo || filterDomain || filterTags || filterExpiryMode !== 'any' || filterExpiringSoon}
+					<div class="date-filter-group date-filter-clear-slot">
+						<span class="date-label" aria-hidden="true">&nbsp;</span>
+						<Button variant="secondary" size="sm" onclick={clearFilters}>Clear</Button>
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -540,7 +717,7 @@
 						<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
 					</svg>
 				</div>
-				{#if search || dateFrom || dateTo}
+				{#if search || dateFrom || dateTo || activeExtraFilters}
 					<h3 class="empty-title">No matching links</h3>
 					<p class="empty-description">Try adjusting your search or filters</p>
 					<Button variant="secondary" onclick={clearFilters}>Clear filters</Button>
@@ -561,7 +738,8 @@
 			<div class="links-list">
 				{#each linkList as link (link.id)}
 					<LinkRow 
-						{link} 
+						{link}
+						baseUrl={baseUrl}
 						ondelete={selectionMode ? undefined : handleDeleteLink} 
 						onedit={selectionMode ? undefined : handleEdit}
 						onqr={selectionMode ? undefined : handleQR}
@@ -615,6 +793,10 @@
 				{/each}
 			</select>
 		</div>
+		<p class="field-hint">Optional: override the link preview in the stats view (instead of loading from the destination URL).</p>
+		<Input type="text" label="Preview title" placeholder="Custom title for the preview card" bind:value={editOgTitle} />
+		<Input type="text" label="Preview description" placeholder="Short description" bind:value={editOgDescription} />
+		<Input type="url" label="Preview image URL" placeholder="https://…" bind:value={editOgImageUrl} />
 		<div class="form-actions">
 			<Button variant="secondary" onclick={() => { showEditModal = false; editLink = null; }}>Cancel</Button>
 			<Button type="submit" loading={editLoading}>Save</Button>
@@ -637,21 +819,19 @@
 			</div>
 			{#if statsData.clicks_by_day && statsData.clicks_by_day.length > 0}
 				<div class="stats-chart">
-					<h4 class="stats-chart-title">Last 7 Days</h4>
-					<div class="stats-bars">
-						{#each statsData.clicks_by_day.slice(-7) as day}
-							<div class="stats-bar-item">
-								<div class="stats-bar" style="height: {Math.max(4, (day.clicks / Math.max(...statsData.clicks_by_day!.map(d => d.clicks))) * 80)}px"></div>
-								<span class="stats-bar-label">{day.date.slice(5)}</span>
-							</div>
-						{/each}
-					</div>
+					<h4 class="stats-chart-title">Last 7 days</h4>
+					<Chart data={chartPointsFromClicksByDay(statsData.clicks_by_day)} plotHeight={168} />
 				</div>
 			{/if}
 			{#if statsLink}
 				<div class="stats-preview">
 					<h4 class="stats-chart-title">Link Preview</h4>
-					<LinkPreview url={statsLink.original_url} />
+					<LinkPreview
+						url={statsLink.original_url}
+						ogTitle={statsLink.og_title}
+						ogDescription={statsLink.og_description}
+						ogImageUrl={statsLink.og_image_url}
+					/>
 				</div>
 				<div class="stats-export">
 					<h4 class="stats-chart-title">Export</h4>
@@ -816,11 +996,57 @@
 			<input type="checkbox" bind:checked={isOneTime} />
 			<span>One-time link (burns after first access)</span>
 		</label>
+		<p class="field-hint">Optional: override the link preview in the stats view (instead of loading from the destination URL).</p>
+		<Input type="text" label="Preview title" placeholder="Custom title for the preview card" bind:value={newOgTitle} />
+		<Input type="text" label="Preview description" placeholder="Short description" bind:value={newOgDescription} />
+		<Input type="url" label="Preview image URL" placeholder="https://…" bind:value={newOgImageUrl} />
 		<div class="form-actions">
 			<Button variant="secondary" onclick={() => { showCreateModal = false; resetCreateForm(); }}>Cancel</Button>
 			<Button type="submit" loading={createLoading}>Create</Button>
 		</div>
 	</form>
+</Modal>
+
+<Modal
+	open={showBulkMoveModal}
+	title="Move to folder"
+	onclose={() => { showBulkMoveModal = false; bulkFolderPick = ''; }}
+>
+	<div class="bulk-modal">
+		<p class="bulk-modal-text">{selectedCount} link{selectedCount === 1 ? '' : 's'} selected.</p>
+		<div class="select-wrapper">
+			<label class="select-label">Folder</label>
+			<select class="select-input" bind:value={bulkFolderPick}>
+				<option value="">No folder</option>
+				{#each folderList as folder}
+					<option value={String(folder.id)}>{folder.name}</option>
+				{/each}
+			</select>
+		</div>
+		<div class="form-actions">
+			<Button variant="secondary" onclick={() => { showBulkMoveModal = false; bulkFolderPick = ''; }}>Cancel</Button>
+			<Button onclick={submitBulkMove} loading={bulkOpsLoading}>Apply</Button>
+		</div>
+	</div>
+</Modal>
+
+<Modal
+	open={showBulkTagsModal}
+	title="Set tags"
+	onclose={() => { showBulkTagsModal = false; bulkTagsInput = ''; }}
+>
+	<div class="bulk-modal">
+		<p class="bulk-modal-text">{selectedCount} link{selectedCount === 1 ? '' : 's'} selected.</p>
+		<Input type="text" label="Tags (comma-separated)" placeholder="project, docs" bind:value={bulkTagsInput} />
+		<label class="checkbox-label">
+			<input type="checkbox" bind:checked={bulkAppendTags} />
+			<span>Append to existing tags (otherwise replace)</span>
+		</label>
+		<div class="form-actions">
+			<Button variant="secondary" onclick={() => { showBulkTagsModal = false; bulkTagsInput = ''; }}>Cancel</Button>
+			<Button onclick={submitBulkTags} loading={bulkOpsLoading} disabled={!bulkTagsInput.trim()}>Apply</Button>
+		</div>
+	</div>
 </Modal>
 
 <style>
@@ -857,8 +1083,10 @@
 	
 	.bulk-bar {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
+		gap: var(--space-2);
 		padding: var(--space-3) var(--space-4);
 		background: var(--bg-tertiary);
 		border: 1px solid var(--border-light);
@@ -868,6 +1096,25 @@
 	.bulk-actions {
 		display: flex;
 		gap: var(--space-2);
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.bulk-hint {
+		font-size: var(--text-xs);
+		color: var(--text-muted);
+		margin: 0;
+		width: 100%;
+	}
+
+	.bulk-hint kbd {
+		display: inline-block;
+		padding: 1px 5px;
+		font-family: var(--font-mono, monospace);
+		font-size: 10px;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-sm);
 	}
 	
 	.select-all-label {
@@ -946,12 +1193,105 @@
 	
 	.date-filters {
 		display: flex;
-		align-items: flex-end;
+		align-items: flex-start;
 		gap: var(--space-4);
 		padding: var(--space-3) var(--space-4);
 		background: var(--bg-tertiary);
 		border: 1px solid var(--border-light);
 		border-radius: var(--radius-md);
+		flex-wrap: wrap;
+	}
+
+	.filter-panel {
+		align-items: flex-start;
+	}
+
+	.date-filter-group.wide {
+		min-width: 160px;
+		flex: 1;
+	}
+
+	.text-filter-input {
+		height: 36px;
+		padding: 0 var(--space-3);
+		font-family: var(--font-sans);
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		width: 100%;
+		max-width: 280px;
+	}
+
+	.text-filter-input:focus {
+		outline: none;
+		border-color: var(--accent-primary);
+	}
+
+	.filter-select {
+		height: 36px;
+		max-width: 160px;
+	}
+
+	.filter-check-field {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		height: 36px;
+		padding: 0 var(--space-3);
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--text-primary);
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-light);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		white-space: nowrap;
+		transition: border-color var(--transition-fast), background var(--transition-fast);
+		box-sizing: border-box;
+	}
+
+	.filter-check-field:hover {
+		border-color: var(--border-medium);
+		background: var(--bg-tertiary);
+	}
+
+	.filter-check-field:has(input:focus-visible) {
+		outline: none;
+		border-color: var(--accent-primary);
+	}
+
+	.filter-check-field input {
+		width: 16px;
+		height: 16px;
+		margin: 0;
+		accent-color: var(--accent-primary);
+		cursor: pointer;
+		flex-shrink: 0;
+		border-radius: var(--radius-sm);
+	}
+
+	.filter-check-field span {
+		user-select: none;
+	}
+
+	.field-hint {
+		font-size: var(--text-xs);
+		color: var(--text-muted);
+		margin: 0;
+	}
+
+	.bulk-modal {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+
+	.bulk-modal-text {
+		font-size: var(--text-sm);
+		color: var(--text-secondary);
+		margin: 0;
 	}
 	
 	.date-filter-group {
@@ -961,8 +1301,11 @@
 	}
 	
 	.date-label {
+		display: block;
 		font-size: var(--text-xs);
 		font-weight: var(--font-medium);
+		line-height: 1.25;
+		min-height: calc(1em * 1.25);
 		color: var(--text-tertiary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -1192,37 +1535,7 @@
 		font-weight: var(--font-medium);
 		color: var(--text-secondary);
 	}
-	
-	.stats-bars {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: var(--space-2);
-		height: 100px;
-		padding-bottom: var(--space-6);
-	}
-	
-	.stats-bar-item {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--space-1);
-	}
-	
-	.stats-bar {
-		width: 100%;
-		max-width: 40px;
-		background: var(--accent-primary);
-		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-		transition: height var(--transition-slow);
-	}
-	
-	.stats-bar-label {
-		font-size: var(--text-xs);
-		color: var(--text-muted);
-	}
-	
+
 	.stats-preview {
 		display: flex;
 		flex-direction: column;

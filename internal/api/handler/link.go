@@ -170,6 +170,79 @@ func (h *LinkHandler) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, result)
 }
 
+func (h *LinkHandler) BulkUpdate(w http.ResponseWriter, r *http.Request) {
+	var req domain.BulkUpdateLinksRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if len(req.Slugs) == 0 {
+		response.ValidationError(w, "slugs", "at least one slug is required")
+		return
+	}
+
+	if len(req.Slugs) > 100 {
+		response.ValidationError(w, "slugs", "maximum 100 slugs per request")
+		return
+	}
+
+	if !req.RemoveFolder && req.FolderID == nil && len(req.Tags) == 0 {
+		response.BadRequest(w, "no changes: specify folder_id, remove_folder, or tags")
+		return
+	}
+
+	result, err := h.service.BulkUpdate(r.Context(), req)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, result)
+}
+
+type bulkRestoreRequest struct {
+	Slugs []string `json:"slugs"`
+}
+
+type bulkRestoreResponse struct {
+	Restored []string `json:"restored"`
+	Failed   []string `json:"failed"`
+}
+
+func (h *LinkHandler) BulkRestore(w http.ResponseWriter, r *http.Request) {
+	var req bulkRestoreRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if len(req.Slugs) == 0 {
+		response.ValidationError(w, "slugs", "at least one slug is required")
+		return
+	}
+
+	if len(req.Slugs) > 100 {
+		response.ValidationError(w, "slugs", "maximum 100 slugs per request")
+		return
+	}
+
+	result := bulkRestoreResponse{
+		Restored: make([]string, 0),
+		Failed:   make([]string, 0),
+	}
+
+	for _, slug := range req.Slugs {
+		if err := h.service.Restore(r.Context(), slug); err != nil {
+			result.Failed = append(result.Failed, slug)
+		} else {
+			result.Restored = append(result.Restored, slug)
+		}
+	}
+
+	response.JSON(w, http.StatusOK, result)
+}
+
 func (h *LinkHandler) List(w http.ResponseWriter, r *http.Request) {
 	filter := domain.ListLinksFilter{
 		Search: r.URL.Query().Get("search"),
@@ -202,6 +275,13 @@ func (h *LinkHandler) List(w http.ResponseWriter, r *http.Request) {
 	filter.OnlyDeleted = r.URL.Query().Get("only_deleted") == "true"
 	filter.CreatedAfter = r.URL.Query().Get("created_after")
 	filter.CreatedBefore = r.URL.Query().Get("created_before")
+	filter.ExpiresAfter = r.URL.Query().Get("expires_after")
+	filter.ExpiresBefore = r.URL.Query().Get("expires_before")
+
+	if v := r.URL.Query().Get("has_expiry"); v != "" {
+		b := v == "true"
+		filter.HasExpiry = &b
+	}
 
 	links, err := h.service.List(r.Context(), filter)
 	if err != nil {

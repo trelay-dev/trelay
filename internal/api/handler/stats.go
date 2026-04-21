@@ -51,6 +51,11 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Redirect counter on `links` can exceed analytics rows (e.g. analytics off, or tools that only bump count).
+	if linkData.ClickCount > stats.TotalClicks {
+		stats.TotalClicks = linkData.ClickCount
+	}
+
 	exportFormat := r.URL.Query().Get("export")
 	switch exportFormat {
 	case "csv":

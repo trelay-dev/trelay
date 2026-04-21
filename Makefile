@@ -1,4 +1,4 @@
-.PHONY: all build build-server build-cli run test lint clean migrate dev
+.PHONY: all build build-server build-cli run test lint clean migrate dev seed
 
 # Binary names
 SERVER_BINARY=trelay-server
@@ -62,3 +62,7 @@ migrate-down:
 migrate-create:
 	@read -p "Migration name: " name; \
 	goose -dir migrations create $$name sql
+
+# Insert demo folders and links into DB_PATH (see cmd/seed). Run from repo root with .env present.
+seed:
+	$(GOCMD) run ./cmd/seed

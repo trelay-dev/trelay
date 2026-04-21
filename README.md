@@ -24,12 +24,16 @@
 ## Features
 
 - URL shortening with custom slugs, expiration, and password protection
+- Password-protected links: HTML password page (or `?p=` as before) for visitors
 - One-time links that self-destruct after first access
 - Folder management for organizing links
 - Custom domain routing
 - Click analytics with CSV/JSON export
-- Open Graph metadata fetching for link previews
+- Open Graph metadata fetching for link previews, plus optional per-link OG overrides in the dashboard
 - QR code generation with download and clipboard support
+- Links list: search and filters (tags, domain, created dates, expiry), bulk move/tag/delete, trash bulk restore
+- Click the short link slug or the copy control to copy the full short URL; expiry countdown on rows
+- Keyboard shortcuts on the links page (`/` search, `s` selection mode, `m` bulk move, `t` bulk tags)
 - Trash with soft-delete and restore functionality
 - Cross-platform CLI with shell completion
 - Security-focused: JWT/API key auth, secure headers, rate limiting
@@ -121,6 +125,8 @@ Run `trelay --help` for full documentation.
 | GET | `/api/v1/links` | List links |
 | GET | `/api/v1/links/{slug}` | Get link |
 | PATCH | `/api/v1/links/{slug}` | Update link |
+| PATCH | `/api/v1/links/bulk` | Bulk update folder and/or tags |
+| POST | `/api/v1/links/bulk/restore` | Bulk restore from trash |
 | DELETE | `/api/v1/links/{slug}` | Delete link |
 | POST | `/api/v1/links/{slug}/restore` | Restore deleted link |
 | GET | `/api/v1/stats/{slug}` | Get link stats |

@@ -78,6 +78,8 @@ func NewRouter(
 
 			r.Post("/links", linkHandler.Create)
 			r.Get("/links", linkHandler.List)
+			r.Patch("/links/bulk", linkHandler.BulkUpdate)
+			r.Post("/links/bulk/restore", linkHandler.BulkRestore)
 			r.Delete("/links", linkHandler.BulkDelete)
 			r.Get("/links/{slug}", linkHandler.Get)
 			r.Patch("/links/{slug}", linkHandler.Update)
@@ -103,6 +105,7 @@ func NewRouter(
 	})
 
 	r.Get("/{slug}", redirectHandler.Redirect)
+	r.Post("/{slug}", redirectHandler.RedirectPost)
 
 	if cfg.StaticDir != "" {
 		serveStaticFiles(r, cfg.StaticDir)

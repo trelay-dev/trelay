@@ -17,6 +17,9 @@ type Link struct {
 	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
 	Tags         []string   `json:"tags,omitempty"`
 	FolderID     *int64     `json:"folder_id,omitempty"`
+	OGTitle       string `json:"og_title,omitempty"`
+	OGDescription string `json:"og_description,omitempty"`
+	OGImageURL    string `json:"og_image_url,omitempty"`
 	ClickCount   int64      `json:"click_count"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -67,23 +70,44 @@ type LinkPreview struct {
 
 // CreateLinkRequest contains data for creating a new link.
 type CreateLinkRequest struct {
-	URL       string   `json:"url"`
-	Slug      string   `json:"slug,omitempty"`
-	Domain    string   `json:"domain,omitempty"`
-	Password  string   `json:"password,omitempty"`
-	TTLHours  int      `json:"ttl_hours,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
-	FolderID  *int64   `json:"folder_id,omitempty"`
-	IsOneTime bool     `json:"is_one_time,omitempty"`
+	URL           string   `json:"url"`
+	Slug          string   `json:"slug,omitempty"`
+	Domain        string   `json:"domain,omitempty"`
+	Password      string   `json:"password,omitempty"`
+	TTLHours      int      `json:"ttl_hours,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+	FolderID      *int64   `json:"folder_id,omitempty"`
+	IsOneTime     bool     `json:"is_one_time,omitempty"`
+	OGTitle       string   `json:"og_title,omitempty"`
+	OGDescription string   `json:"og_description,omitempty"`
+	OGImageURL    string   `json:"og_image_url,omitempty"`
 }
 
 // UpdateLinkRequest contains data for updating an existing link.
 type UpdateLinkRequest struct {
-	URL      *string   `json:"url,omitempty"`
-	Password *string   `json:"password,omitempty"`
-	TTLHours *int      `json:"ttl_hours,omitempty"`
-	Tags     *[]string `json:"tags,omitempty"`
-	FolderID *int64    `json:"folder_id,omitempty"`
+	URL             *string   `json:"url,omitempty"`
+	Password        *string   `json:"password,omitempty"`
+	TTLHours        *int      `json:"ttl_hours,omitempty"`
+	Tags            *[]string `json:"tags,omitempty"`
+	FolderID        *int64    `json:"folder_id,omitempty"`
+	OGTitle         *string   `json:"og_title,omitempty"`
+	OGDescription   *string   `json:"og_description,omitempty"`
+	OGImageURL      *string   `json:"og_image_url,omitempty"`
+}
+
+// BulkUpdateLinksRequest updates multiple links from the dashboard.
+type BulkUpdateLinksRequest struct {
+	Slugs        []string `json:"slugs"`
+	FolderID     *int64   `json:"folder_id,omitempty"`
+	RemoveFolder bool     `json:"remove_folder,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
+	AppendTags   bool     `json:"append_tags,omitempty"`
+}
+
+// BulkUpdateLinksResult reports per-slug bulk update outcome.
+type BulkUpdateLinksResult struct {
+	Updated []string `json:"updated"`
+	Failed  []string `json:"failed"`
 }
 
 // ListLinksFilter contains filter options for listing links.
@@ -96,6 +120,9 @@ type ListLinksFilter struct {
 	Offset         int      `json:"offset,omitempty"`
 	IncludeDeleted bool     `json:"include_deleted,omitempty"`
 	OnlyDeleted    bool     `json:"only_deleted,omitempty"`
-	CreatedAfter   string   `json:"created_after,omitempty"`
-	CreatedBefore  string   `json:"created_before,omitempty"`
+	CreatedAfter   string `json:"created_after,omitempty"`
+	CreatedBefore  string `json:"created_before,omitempty"`
+	ExpiresAfter   string `json:"expires_after,omitempty"`
+	ExpiresBefore  string `json:"expires_before,omitempty"`
+	HasExpiry      *bool  `json:"has_expiry,omitempty"`
 }

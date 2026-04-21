@@ -122,7 +122,7 @@ func (r *ClickRepository) GetClicksByDay(ctx context.Context, linkID int64, days
 		FROM clicks
 		WHERE link_id = ? AND DATE(timestamp) >= ?
 		GROUP BY DATE(timestamp)
-		ORDER BY date DESC
+		ORDER BY date ASC
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, linkID, startDate)

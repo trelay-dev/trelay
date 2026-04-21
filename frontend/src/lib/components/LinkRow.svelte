@@ -16,9 +16,29 @@
 	let { link, baseUrl = '', ondelete, onedit, onqr, onstats, selectable = false, selected = false, onselect }: Props = $props();
 	
 	let copied = $state(false);
+
+	let expiryHint = $derived.by(() => {
+		if (!link.expires_at) return null;
+		const exp = new Date(link.expires_at).getTime();
+		const now = Date.now();
+		if (exp <= now) return { text: 'Expired', urgent: true };
+		const ms = exp - now;
+		const days = Math.floor(ms / (86400 * 1000));
+		if (days > 7) {
+			return { text: `Expires ${formatDate(link.expires_at)}`, urgent: false };
+		}
+		if (days > 0) {
+			return { text: `Expires in ${days} day${days === 1 ? '' : 's'}`, urgent: days <= 2 };
+		}
+		const hours = Math.floor(ms / (3600 * 1000));
+		if (hours > 0) return { text: `Expires in ${hours}h`, urgent: true };
+		const mins = Math.max(1, Math.floor(ms / 60000));
+		return { text: `Expires in ${mins}m`, urgent: true };
+	});
 	
 	function copyLink() {
-		const url = `${baseUrl}/${link.slug}`;
+		const origin = (baseUrl || '').replace(/\/$/, '');
+		const url = origin ? `${origin}/${link.slug}` : `/${link.slug}`;
 		navigator.clipboard.writeText(url);
 		copied = true;
 		setTimeout(() => copied = false, 2000);
@@ -46,7 +66,9 @@
 	{/if}
 	<div class="link-main">
 		<div class="link-slug-row">
-			<span class="link-slug">/{link.slug}</span>
+			<button type="button" class="link-slug" onclick={copyLink} title="Copy short URL">
+				/{link.slug}
+			</button>
 			{#if link.has_password}
 				<span class="badge badge-warning">Protected</span>
 			{/if}
@@ -57,6 +79,9 @@
 		<a href={link.original_url} target="_blank" rel="noopener" class="link-url truncate">
 			{truncateUrl(link.original_url)}
 		</a>
+		{#if expiryHint}
+			<span class="expiry-hint" class:urgent={expiryHint.urgent}>{expiryHint.text}</span>
+		{/if}
 	</div>
 	
 	<div class="link-stats">
@@ -176,9 +201,31 @@
 	}
 	
 	.link-slug {
+		font-family: inherit;
 		font-size: var(--text-base);
 		font-weight: var(--font-medium);
 		color: var(--text-primary);
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.link-slug:hover {
+		color: var(--accent-primary);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.expiry-hint {
+		font-size: var(--text-xs);
+		color: var(--text-muted);
+	}
+
+	.expiry-hint.urgent {
+		color: var(--color-warning);
+		font-weight: var(--font-medium);
 	}
 	
 	.link-url {

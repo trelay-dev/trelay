@@ -74,17 +74,20 @@ func (s *Service) Create(ctx context.Context, req domain.CreateLinkRequest) (*do
 
 	now := time.Now()
 	link := &domain.Link{
-		Slug:         linkSlug,
-		OriginalURL:  normalizedURL,
-		Domain:       req.Domain,
-		PasswordHash: passwordHash,
-		HasPassword:  passwordHash != "",
-		IsOneTime:    req.IsOneTime,
-		ExpiresAt:    expiresAt,
-		Tags:         req.Tags,
-		FolderID:     req.FolderID,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		Slug:          linkSlug,
+		OriginalURL:   normalizedURL,
+		Domain:        req.Domain,
+		PasswordHash:  passwordHash,
+		HasPassword:   passwordHash != "",
+		IsOneTime:     req.IsOneTime,
+		ExpiresAt:     expiresAt,
+		Tags:          req.Tags,
+		FolderID:      req.FolderID,
+		OGTitle:       req.OGTitle,
+		OGDescription: req.OGDescription,
+		OGImageURL:    req.OGImageURL,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	return s.repo.Create(ctx, link)
@@ -192,6 +195,16 @@ func (s *Service) Update(ctx context.Context, linkSlug string, req domain.Update
 		link.FolderID = req.FolderID
 	}
 
+	if req.OGTitle != nil {
+		link.OGTitle = *req.OGTitle
+	}
+	if req.OGDescription != nil {
+		link.OGDescription = *req.OGDescription
+	}
+	if req.OGImageURL != nil {
+		link.OGImageURL = *req.OGImageURL
+	}
+
 	link.UpdatedAt = time.Now()
 
 	if err := s.repo.Update(ctx, link); err != nil {
@@ -199,6 +212,70 @@ func (s *Service) Update(ctx context.Context, linkSlug string, req domain.Update
 	}
 
 	return link, nil
+}
+
+// BulkUpdate applies folder and/or tag changes to many links.
+func (s *Service) BulkUpdate(ctx context.Context, req domain.BulkUpdateLinksRequest) (*domain.BulkUpdateLinksResult, error) {
+	result := &domain.BulkUpdateLinksResult{Updated: []string{}, Failed: []string{}}
+	if len(req.Slugs) == 0 {
+		return result, nil
+	}
+
+	for _, slug := range req.Slugs {
+		if slug == "" {
+			continue
+		}
+
+		link, err := s.repo.GetBySlug(ctx, slug)
+		if err != nil {
+			result.Failed = append(result.Failed, slug)
+			continue
+		}
+		if link.IsDeleted() {
+			result.Failed = append(result.Failed, slug)
+			continue
+		}
+
+		if req.RemoveFolder {
+			link.FolderID = nil
+		} else if req.FolderID != nil {
+			link.FolderID = req.FolderID
+		}
+
+		if len(req.Tags) > 0 {
+			if req.AppendTags {
+				seen := make(map[string]struct{})
+				var merged []string
+				for _, t := range link.Tags {
+					if _, ok := seen[t]; !ok {
+						seen[t] = struct{}{}
+						merged = append(merged, t)
+					}
+				}
+				for _, t := range req.Tags {
+					if t == "" {
+						continue
+					}
+					if _, ok := seen[t]; !ok {
+						seen[t] = struct{}{}
+						merged = append(merged, t)
+					}
+				}
+				link.Tags = merged
+			} else {
+				link.Tags = req.Tags
+			}
+		}
+
+		link.UpdatedAt = time.Now()
+		if err := s.repo.Update(ctx, link); err != nil {
+			result.Failed = append(result.Failed, slug)
+			continue
+		}
+		result.Updated = append(result.Updated, slug)
+	}
+
+	return result, nil
 }
 
 // Delete soft-deletes a link.

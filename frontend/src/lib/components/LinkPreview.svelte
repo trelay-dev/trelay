@@ -1,33 +1,69 @@
 <script lang="ts">
-	import { preview, type LinkPreview } from '$lib/utils/api';
-	import { onMount } from 'svelte';
-	
+	import { preview, type LinkPreview as FetchedPreview } from '$lib/utils/api';
+
 	interface Props {
 		url: string;
+		ogTitle?: string;
+		ogDescription?: string;
+		ogImageUrl?: string;
 	}
-	
-	let { url }: Props = $props();
-	
-	let previewData = $state<LinkPreview | null>(null);
+
+	let { url, ogTitle, ogDescription, ogImageUrl }: Props = $props();
+
+	let previewData = $state<FetchedPreview | null>(null);
 	let loading = $state(true);
 	let error = $state(false);
-	
-	onMount(async () => {
-		await loadPreview();
+
+	function pickOverride(override: string | undefined, fallback: string | undefined): string {
+		if (override !== undefined && override !== '') return override;
+		return fallback ?? '';
+	}
+
+	$effect(() => {
+		url;
+		ogTitle;
+		ogDescription;
+		ogImageUrl;
+		void loadPreview();
 	});
-	
+
 	async function loadPreview() {
 		loading = true;
 		error = false;
 		try {
 			const res = await preview.fetch(url);
-			if (res.success && res.data) {
-				previewData = res.data;
+			const fetched = res.success && res.data ? res.data : null;
+
+			const title = pickOverride(ogTitle, fetched?.title);
+			const description = pickOverride(ogDescription, fetched?.description);
+			const imageUrl = pickOverride(ogImageUrl, fetched?.image_url);
+
+			if (!title && !description && !imageUrl) {
+				previewData = null;
+				error = !fetched;
 			} else {
-				error = true;
+				previewData = {
+					title,
+					description,
+					image_url: imageUrl,
+					fetched_at: fetched?.fetched_at ?? new Date().toISOString()
+				};
 			}
-		} catch (e) {
-			error = true;
+		} catch {
+			const title = ogTitle ?? '';
+			const description = ogDescription ?? '';
+			const imageUrl = ogImageUrl ?? '';
+			if (!title && !description && !imageUrl) {
+				error = true;
+				previewData = null;
+			} else {
+				previewData = {
+					title,
+					description,
+					image_url: imageUrl,
+					fetched_at: new Date().toISOString()
+				};
+			}
 		} finally {
 			loading = false;
 		}
@@ -73,7 +109,7 @@
 	.link-preview {
 		margin-top: var(--space-4);
 	}
-	
+
 	.preview-loading, .preview-error {
 		display: flex;
 		align-items: center;
@@ -84,7 +120,7 @@
 		color: var(--text-muted);
 		font-size: var(--text-sm);
 	}
-	
+
 	.preview-spinner {
 		width: 16px;
 		height: 16px;
@@ -93,11 +129,11 @@
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}
-	
+
 	@keyframes spin {
 		to { transform: rotate(360deg); }
 	}
-	
+
 	.preview-card {
 		display: flex;
 		flex-direction: column;
@@ -106,27 +142,27 @@
 		overflow: hidden;
 		background: var(--bg-secondary);
 	}
-	
+
 	.preview-image {
 		width: 100%;
 		height: 140px;
 		overflow: hidden;
 		background: var(--bg-tertiary);
 	}
-	
+
 	.preview-image img {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
 	}
-	
+
 	.preview-content {
 		padding: var(--space-3);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
 	}
-	
+
 	.preview-title {
 		font-size: var(--text-sm);
 		font-weight: var(--font-medium);
@@ -137,7 +173,7 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
-	
+
 	.preview-description {
 		font-size: var(--text-xs);
 		color: var(--text-secondary);
@@ -147,7 +183,7 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
-	
+
 	.preview-url {
 		font-size: var(--text-xs);
 		color: var(--text-muted);

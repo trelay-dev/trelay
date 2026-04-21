@@ -4,7 +4,10 @@
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	
+	import { browser } from '$app/environment';
+
+	let baseUrl = $derived(browser ? window.location.origin : '');
+
 	let linkList = $state<Link[]>([]);
 	let folderList = $state<Folder[]>([]);
 	let totalLinks = $state(0);
@@ -207,7 +210,9 @@
 	<header class="page-header">
 		<div class="page-header-content">
 			<h1 class="page-title">Dashboard</h1>
-			<p class="page-subtitle">Overview of your links and analytics</p>
+			<p class="page-subtitle">
+				Summary of your links and folders; click activity uses per-day analytics from actual visits (not the total click counters).
+			</p>
 		</div>
 		<Button onclick={() => showCreateModal = true}>
 			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -235,7 +240,12 @@
 					<span class="card-subtitle">Last 7 days</span>
 				</div>
 				<div class="chart-container">
-					<Chart data={chartData} height={180} />
+					{#if weekClicks === 0}
+						<p class="chart-empty-copy">
+							No per-day clicks in the last 7 days yet. When someone opens your short links, daily totals appear here. Total Clicks above sums each link's all-time counter; This Week only counts those daily events.
+						</p>
+					{/if}
+					<Chart data={chartData} plotHeight={168} />
 				</div>
 			</Card>
 			
@@ -247,7 +257,7 @@
 				{#if linkList.length > 0}
 					<div class="links-list">
 						{#each linkList as link (link.id)}
-							<LinkRow {link} ondelete={handleDeleteLink} />
+							<LinkRow {link} {baseUrl} ondelete={handleDeleteLink} />
 						{/each}
 					</div>
 				{:else}
@@ -362,6 +372,7 @@
 		display: grid;
 		grid-template-columns: 1fr;
 		gap: var(--space-4);
+		align-items: start;
 	}
 	
 	@media (min-width: 1024px) {
@@ -372,30 +383,44 @@
 	
 	.card-header {
 		display: flex;
-		align-items: center;
+		align-items: baseline;
 		justify-content: space-between;
+		gap: var(--space-3);
 		padding: var(--space-4) var(--space-5);
 		border-bottom: 1px solid var(--border-light);
 	}
 	
 	.card-title {
+		margin: 0;
 		font-size: var(--text-base);
 		font-weight: var(--font-semibold);
+		line-height: 1.3;
 		color: var(--text-primary);
 	}
 	
 	.card-subtitle {
+		flex-shrink: 0;
 		font-size: var(--text-sm);
+		line-height: 1.3;
 		color: var(--text-muted);
 	}
 	
 	.card-link {
+		flex-shrink: 0;
 		font-size: var(--text-sm);
+		line-height: 1.3;
 		font-weight: var(--font-medium);
 	}
 	
 	.chart-container {
 		padding: var(--space-4) var(--space-5);
+	}
+
+	.chart-empty-copy {
+		margin: 0 0 var(--space-3);
+		font-size: var(--text-sm);
+		line-height: 1.45;
+		color: var(--text-secondary);
 	}
 	
 	.links-list {

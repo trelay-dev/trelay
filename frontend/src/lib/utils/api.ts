@@ -64,9 +64,13 @@ export interface Link {
 	expires_at?: string;
 	tags?: string[];
 	folder_id?: number;
+	og_title?: string;
+	og_description?: string;
+	og_image_url?: string;
 	click_count: number;
 	created_at: string;
 	updated_at: string;
+	deleted_at?: string;
 }
 
 export interface CreateLinkRequest {
@@ -78,6 +82,9 @@ export interface CreateLinkRequest {
 	tags?: string[];
 	folder_id?: number;
 	is_one_time?: boolean;
+	og_title?: string;
+	og_description?: string;
+	og_image_url?: string;
 }
 
 export interface Folder {
@@ -94,8 +101,29 @@ export interface ClickStats {
 }
 
 // API functions
+export interface BulkUpdateResult {
+	updated: string[];
+	failed: string[];
+}
+
+export interface BulkRestoreResult {
+	restored: string[];
+	failed: string[];
+}
+
 export const links = {
-	list: (params?: { search?: string; folder_id?: number; only_deleted?: boolean; created_after?: string; created_before?: string }) => {
+	list: (params?: {
+		search?: string;
+		folder_id?: number;
+		only_deleted?: boolean;
+		created_after?: string;
+		created_before?: string;
+		domain?: string;
+		tags?: string[];
+		has_expiry?: boolean;
+		expires_after?: string;
+		expires_before?: string;
+	}) => {
 		let path = '/links';
 		const query = new URLSearchParams();
 		if (params?.search) query.set('search', params.search);
@@ -103,6 +131,11 @@ export const links = {
 		if (params?.only_deleted) query.set('only_deleted', 'true');
 		if (params?.created_after) query.set('created_after', params.created_after);
 		if (params?.created_before) query.set('created_before', params.created_before);
+		if (params?.domain) query.set('domain', params.domain);
+		if (params?.tags) for (const t of params.tags) query.append('tags', t);
+		if (params?.has_expiry !== undefined) query.set('has_expiry', params.has_expiry ? 'true' : 'false');
+		if (params?.expires_after) query.set('expires_after', params.expires_after);
+		if (params?.expires_before) query.set('expires_before', params.expires_before);
 		if (query.toString()) path += `?${query}`;
 		return api.get<Link[]>(path);
 	},
@@ -113,6 +146,15 @@ export const links = {
 		api.delete<void>(`/links/${slug}${permanent ? '?permanent=true' : ''}`),
 	bulkDelete: (slugs: string[], permanent = false) => 
 		api.delete<{ deleted: string[]; failed: string[] }>('/links', { slugs, permanent }),
+	bulkUpdate: (data: {
+		slugs: string[];
+		folder_id?: number;
+		remove_folder?: boolean;
+		tags?: string[];
+		append_tags?: boolean;
+	}) => api.patch<BulkUpdateResult>('/links/bulk', data),
+	bulkRestore: (slugs: string[]) =>
+		api.post<BulkRestoreResult>('/links/bulk/restore', { slugs }),
 	restore: (slug: string) => api.post<{ restored: boolean }>(`/links/${slug}/restore`)
 };
 

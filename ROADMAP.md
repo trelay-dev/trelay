@@ -4,13 +4,13 @@ Rough plan for what might land after the current **v2.x** line. Nothing here is 
 
 ## 1. User experience and dashboard
 
-- [ ] **Interactive landing page for protected links**: replace `?p=password` with a small password UI.
-- [ ] **Bulk actions**: multi-select for move, tag, delete, restore.
-- [ ] **Search and filters**: slugs, URLs, tags, expiry, domain, dates.
-- [ ] **Click-to-copy** short URL from a row.
-- [ ] **Manual OG overrides** for title, description, image on previews.
-- [ ] **Expiry countdown** for links that are about to expire.
-- [ ] **More keyboard shortcuts** (e.g. `/` search, `m` move, `t` tags).
+- [x] **Interactive landing page for protected links**: replace `?p=password` with a small password UI.
+- [x] **Bulk actions**: multi-select for move, tag, delete, restore.
+- [x] **Search and filters**: slugs, URLs, tags, expiry, domain, dates.
+- [x] **Click-to-copy** short URL from a row.
+- [x] **Manual OG overrides** for title, description, image on previews.
+- [x] **Expiry countdown** for links that are about to expire.
+- [x] **More keyboard shortcuts** (e.g. `/` search, `m` move, `t` tags).
 
 ## 2. Analytics and tracking
 

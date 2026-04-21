@@ -32,8 +32,8 @@ func (r *LinkRepository) Create(ctx context.Context, link *domain.Link) (*domain
 	_, _ = r.db.ExecContext(ctx, `DELETE FROM links WHERE slug = ? AND deleted_at IS NOT NULL`, link.Slug)
 
 	query := `
-		INSERT INTO links (slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO links (slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, og_title, og_description, og_image_url, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -45,6 +45,9 @@ func (r *LinkRepository) Create(ctx context.Context, link *domain.Link) (*domain
 		tagsJSON,
 		link.FolderID,
 		link.IsOneTime,
+		link.OGTitle,
+		link.OGDescription,
+		link.OGImageURL,
 		link.CreatedAt,
 		link.UpdatedAt,
 	)
@@ -68,7 +71,7 @@ func (r *LinkRepository) Create(ctx context.Context, link *domain.Link) (*domain
 // GetBySlug retrieves a link by its slug.
 func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (*domain.Link, error) {
 	query := `
-		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
+		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, og_title, og_description, og_image_url, click_count, created_at, updated_at, deleted_at
 		FROM links
 		WHERE slug = ?
 	`
@@ -88,6 +91,9 @@ func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (*domain.Li
 		&tagsJSON,
 		&folderID,
 		&link.IsOneTime,
+		&link.OGTitle,
+		&link.OGDescription,
+		&link.OGImageURL,
 		&link.ClickCount,
 		&link.CreatedAt,
 		&link.UpdatedAt,
@@ -121,7 +127,7 @@ func (r *LinkRepository) GetBySlug(ctx context.Context, slug string) (*domain.Li
 // GetByID retrieves a link by its ID.
 func (r *LinkRepository) GetByID(ctx context.Context, id int64) (*domain.Link, error) {
 	query := `
-		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
+		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, og_title, og_description, og_image_url, click_count, created_at, updated_at, deleted_at
 		FROM links
 		WHERE id = ?
 	`
@@ -141,6 +147,9 @@ func (r *LinkRepository) GetByID(ctx context.Context, id int64) (*domain.Link, e
 		&tagsJSON,
 		&folderID,
 		&link.IsOneTime,
+		&link.OGTitle,
+		&link.OGDescription,
+		&link.OGImageURL,
 		&link.ClickCount,
 		&link.CreatedAt,
 		&link.UpdatedAt,
@@ -180,7 +189,7 @@ func (r *LinkRepository) Update(ctx context.Context, link *domain.Link) error {
 
 	query := `
 		UPDATE links
-		SET original_url = ?, domain = ?, password_hash = ?, expires_at = ?, tags = ?, folder_id = ?, updated_at = ?
+		SET original_url = ?, domain = ?, password_hash = ?, expires_at = ?, tags = ?, folder_id = ?, og_title = ?, og_description = ?, og_image_url = ?, updated_at = ?
 		WHERE id = ?
 	`
 
@@ -191,6 +200,9 @@ func (r *LinkRepository) Update(ctx context.Context, link *domain.Link) error {
 		link.ExpiresAt,
 		tagsJSON,
 		link.FolderID,
+		link.OGTitle,
+		link.OGDescription,
+		link.OGImageURL,
 		time.Now(),
 		link.ID,
 	)
@@ -317,8 +329,26 @@ func (r *LinkRepository) List(ctx context.Context, filter domain.ListLinksFilter
 		args = append(args, filter.CreatedBefore)
 	}
 
+	if filter.HasExpiry != nil {
+		if *filter.HasExpiry {
+			conditions = append(conditions, "expires_at IS NOT NULL")
+		} else {
+			conditions = append(conditions, "expires_at IS NULL")
+		}
+	}
+
+	if filter.ExpiresAfter != "" {
+		conditions = append(conditions, "expires_at IS NOT NULL AND expires_at >= ?")
+		args = append(args, filter.ExpiresAfter)
+	}
+
+	if filter.ExpiresBefore != "" {
+		conditions = append(conditions, "expires_at IS NOT NULL AND expires_at <= ?")
+		args = append(args, filter.ExpiresBefore)
+	}
+
 	query := `
-		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, click_count, created_at, updated_at, deleted_at
+		SELECT id, slug, original_url, domain, password_hash, expires_at, tags, folder_id, is_one_time, og_title, og_description, og_image_url, click_count, created_at, updated_at, deleted_at
 		FROM links
 	`
 
@@ -359,6 +389,9 @@ func (r *LinkRepository) List(ctx context.Context, filter domain.ListLinksFilter
 			&tagsJSON,
 			&folderID,
 			&link.IsOneTime,
+			&link.OGTitle,
+			&link.OGDescription,
+			&link.OGImageURL,
 			&link.ClickCount,
 			&link.CreatedAt,
 			&link.UpdatedAt,
@@ -418,6 +451,41 @@ func (r *LinkRepository) Count(ctx context.Context, filter domain.ListLinksFilte
 	if filter.FolderID != nil {
 		conditions = append(conditions, "folder_id = ?")
 		args = append(args, *filter.FolderID)
+	}
+
+	if len(filter.Tags) > 0 {
+		for _, tag := range filter.Tags {
+			conditions = append(conditions, "tags LIKE ?")
+			args = append(args, "%\""+tag+"\"%")
+		}
+	}
+
+	if filter.CreatedAfter != "" {
+		conditions = append(conditions, "created_at >= ?")
+		args = append(args, filter.CreatedAfter)
+	}
+
+	if filter.CreatedBefore != "" {
+		conditions = append(conditions, "created_at <= ?")
+		args = append(args, filter.CreatedBefore)
+	}
+
+	if filter.HasExpiry != nil {
+		if *filter.HasExpiry {
+			conditions = append(conditions, "expires_at IS NOT NULL")
+		} else {
+			conditions = append(conditions, "expires_at IS NULL")
+		}
+	}
+
+	if filter.ExpiresAfter != "" {
+		conditions = append(conditions, "expires_at IS NOT NULL AND expires_at >= ?")
+		args = append(args, filter.ExpiresAfter)
+	}
+
+	if filter.ExpiresBefore != "" {
+		conditions = append(conditions, "expires_at IS NOT NULL AND expires_at <= ?")
+		args = append(args, filter.ExpiresBefore)
 	}
 
 	query := `SELECT COUNT(*) FROM links`

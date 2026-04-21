@@ -4,7 +4,10 @@
 	import { auth } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	
+	import { browser } from '$app/environment';
+
+	let baseUrl = $derived(browser ? window.location.origin : '');
+
 	let folderList = $state<Folder[]>([]);
 	let loading = $state(true);
 	let selectedFolder = $state<Folder | null>(null);
@@ -173,7 +176,7 @@
 			{:else}
 				<div class="links-list">
 					{#each folderLinks as link (link.id)}
-						<LinkRow {link} ondelete={handleDeleteLink} />
+						<LinkRow {link} {baseUrl} ondelete={handleDeleteLink} />
 					{/each}
 				</div>
 			{/if}
