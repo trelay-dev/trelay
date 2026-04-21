@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/go-mod/go-version/trelay-dev/trelay" alt="Go Version" />
   <img src="https://img.shields.io/github/license/trelay-dev/trelay" alt="License" />
-  <img src="https://img.shields.io/badge/version-v1.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-v2.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/frontend-SvelteKit-ff3e00" alt="Frontend" />
   <img src="https://img.shields.io/badge/runtime-Bun-fbf0df" alt="Runtime" />
 </p>
@@ -126,6 +126,14 @@ Run `trelay --help` for full documentation.
 | GET | `/healthz` | Health check |
 
 Authentication: Include `X-API-Key` header with your API key.
+
+## Roadmap
+
+Planned features and improvements for releases after **v2.0** are tracked in [`ROADMAP.md`](ROADMAP.md) (UX, analytics, core features, security, and platform work).
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow, coding standards, and how to open issues and pull requests.
 
 ## Configuration
 
