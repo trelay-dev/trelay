@@ -1,31 +1,32 @@
 # Contributing to Trelay
 
-Thank you for your interest in contributing to Trelay. This project is under active development, and we welcome contributions that align with our goals of being developer-first and privacy-respecting.
+Thanks for looking at the code. Trelay is under active development; patches that fit the project (self-hosted, privacy-minded, small surface area) are welcome.
 
-## Development Process
+## How to work on a change
 
-1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Implement your changes following the [Coding Standards](#coding-standards).
-4. Ensure all tests pass and the code is formatted.
-5. Submit a pull request with a clear description of the changes.
+1. Fork the repo and branch from `main`.
+2. Make your change in small, reviewable steps.
+3. Match existing style: `go fmt`, `go vet`, and the patterns already in `internal/core` vs API/CLI.
+4. Run tests before you open a PR.
+5. Open a pull request with a short title and enough context in the body that a reviewer can follow the intent.
 
-## Coding Standards
+## Code style (Go and layout)
 
-- Follow standard Go idioms and conventions.
-- Use `go fmt` for formatting.
-- Ensure `go vet` passes without issues.
-- Keep the core logic in the `internal/core` package to maintain separation from delivery layers (API/CLI).
-- Maintain structured logging using `zerolog`.
-- Follow the existing monorepo structure.
+- Idiomatic Go; run `go fmt` on touched files.
+- Keep domain logic in `internal/core`; wire it through API or CLI without duplicating rules.
+- Logging stays on `zerolog` like the rest of the tree.
+- Respect the repo layout you see today (no new top-level packages without a good reason).
 
-## Pull Request Guidelines
+## Pull requests
 
-- Provide a concise but descriptive title.
-- Detail the "why" behind the change in the PR body.
-- Reference any related issues.
-- Keep PRs focused on a single change.
+- One logical change per PR when possible.
+- Link related issues if there are any.
+- Say what you changed and why; screenshots help for UI work.
 
-## Reporting Issues
+## Issues
 
-Use GitHub Issues to report bugs or suggest features. Please provide as much detail as possible, including steps to reproduce for bugs.
+Use GitHub Issues for bugs and feature ideas. For bugs, include version or commit, what you did, what you expected, and what happened instead.
+
+## Security
+
+Do **not** open a public issue for security problems. Follow **[SECURITY.md](SECURITY.md)** and use private vulnerability reporting on the repo’s **Security** tab.

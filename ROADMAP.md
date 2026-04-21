@@ -1,41 +1,46 @@
-# Trelay Implementation Roadmap
+# Roadmap
 
-This document outlines the planned features, improvements, and "good-to-have" additions for Trelay.
+Rough plan for what might land after the current **v2.x** line. Nothing here is a promise or a deadline; it is a backlog we use to stay aligned.
 
-## 1. User Experience (UX) & Dashboard
-- [ ] **Interactive Landing Page for Protected Links**: Replace `?p=password` with a dedicated UI for password entry.
-- [ ] **Bulk Actions**: Multi-select links for mass move, tag, delete, or restore operations.
-- [ ] **Advanced Search & Filtering**: Full-text search (slugs, URLs, tags) and filters for expiry, domain, and date ranges.
-- [ ] **Click-to-Copy URL**: One-click shortening URL copying from the link row.
-- [ ] **Live Preview Overrides**: Allow manual editing of Open Graph metadata (Title, Description, Image).
-- [ ] **Expiration Countdown**: Human-readable countdown for links expiring soon.
-- [ ] **Enhanced Keyboard Shortcuts**: Add `/` for search, `m` for move, `t` for tags, etc.
+## 1. User experience and dashboard
 
-## 2. Analytics & Tracking
-- [ ] **Geo-location Tracking**: Integrate GeoIP (MaxMind/IP2Location) for country/city breakdown.
-- [ ] **Detailed Device Analytics**: Robust User-Agent parsing for specific Browsers and OS versions.
-- [ ] **Real-time "Live" View**: Dashboard section showing clicks as they happen.
-- [ ] **UTM Parameter Builder**: Utility in "Create Link" modal for building tracking URLs.
-- [ ] **Enhanced Exporting**: PDF reports and more granular CSV/JSON export options.
-- [ ] **Referrer Categorization**: Group traffic into Social, Search, Direct, etc.
+- [ ] **Interactive landing page for protected links**: replace `?p=password` with a small password UI.
+- [ ] **Bulk actions**: multi-select for move, tag, delete, restore.
+- [ ] **Search and filters**: slugs, URLs, tags, expiry, domain, dates.
+- [ ] **Click-to-copy** short URL from a row.
+- [ ] **Manual OG overrides** for title, description, image on previews.
+- [ ] **Expiry countdown** for links that are about to expire.
+- [ ] **More keyboard shortcuts** (e.g. `/` search, `m` move, `t` tags).
 
-## 3. Core Functional Additions
-- [ ] **Click-based Expiration**: Expire links after a specific number of clicks.
-- [ ] **Link Rotator (A/B Testing)**: Single slug redirecting to multiple URLs based on weights.
-- [ ] **Alias Support**: Support multiple slugs for a single destination link.
-- [ ] **Custom Domains UI**: Dedicated settings page for managing custom domains.
-- [ ] **Webhooks**: Trigger external URLs on click events or link expiration.
-- [ ] **Scheduled Links**: Set a "start time" for links to become active.
+## 2. Analytics and tracking
 
-## 4. Security & Privacy
-- [ ] **Two-Factor Authentication (2FA)**: Support TOTP for dashboard access.
-- [ ] **Audit Logs**: Track administrative actions (creation, deletion, updates).
-- [ ] **API Key Scoping**: Create keys with restricted permissions (e.g., read-only).
-- [ ] **Granular Privacy Toggles**: Option to disable specific tracking (e.g., referrers) per link.
+- [ ] **GeoIP** (e.g. MaxMind / IP2Location) for country or city.
+- [ ] **Finer device breakdown** from User-Agent (browser/OS versions).
+- [ ] **Live-ish view** of recent clicks on the dashboard.
+- [ ] **UTM helper** in the create flow.
+- [ ] **Richer exports** (PDF, finer CSV/JSON).
+- [ ] **Referrer buckets** (social, search, direct, etc.).
 
-## 5. Technical & CLI
-- [ ] **Caching Layer**: Integrate Redis or in-memory cache for high-traffic redirects.
-- [ ] **PostgreSQL Support**: Add support for Postgres as an alternative to SQLite.
-- [ ] **Interactive CLI Mode**: Walk users through link creation via `trelay create --interactive`.
-- [ ] **Bulk Import**: CLI command to import links from CSV files.
-- [ ] **Enhanced Monitoring**: Detailed metrics on `/healthz` (DB health, disk usage, etc.).
+## 3. Core product
+
+- [ ] **Click-based expiry** (expire after N clicks).
+- [ ] **Link rotator / A/B** (weighted destinations).
+- [ ] **Aliases** (several slugs, one target).
+- [ ] **Custom domains UI** (settings page).
+- [ ] **Webhooks** on click or expiry.
+- [ ] **Scheduled links** (active from a start time).
+
+## 4. Security and privacy
+
+- [ ] **2FA** (TOTP) for the dashboard.
+- [ ] **Audit log** for admin actions.
+- [ ] **Scoped API keys** (read-only, etc.).
+- [ ] **Per-link privacy toggles** (e.g. turn off referrer storage).
+
+## 5. Platform and CLI
+
+- [ ] **Cache layer** (Redis or in-process) for hot redirects.
+- [ ] **PostgreSQL** as an alternative to SQLite.
+- [ ] **Interactive CLI** (`trelay create --interactive`).
+- [ ] **Bulk import** from CSV in the CLI (beyond what the API already does).
+- [ ] **Richer `/healthz`** (DB, disk, etc.).

@@ -17,6 +17,10 @@
   Modern web dashboard, powerful CLI, and automation-friendly API.
 </p>
 
+<p align="center">
+  <sub>Published open source releases are <strong>v2.0+</strong>. There is no public v1; numbering starts here.</sub>
+</p>
+
 ## Features
 
 - URL shortening with custom slugs, expiration, and password protection
@@ -133,7 +137,11 @@ Planned features and improvements for releases after **v2.0** are tracked in [`R
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow, coding standards, and how to open issues and pull requests.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how we take patches and issues.
+
+## Security
+
+Found something sensitive? Do not use the public issue tracker. Read [`SECURITY.md`](SECURITY.md) and use GitHub’s private reporting under the **Security** tab.
 
 ## Configuration
 
